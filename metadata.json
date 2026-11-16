@@ -1,0 +1,6 @@
+{
+  "name": "PRUF - KOMPOSISI TSC",
+  "description": "Sistem Manajemen & Kalkulasi Komposisi PRUF TSC - PT Batu Karang Divisi Produksi I",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
