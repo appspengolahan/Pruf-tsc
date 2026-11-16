@@ -1,4 +1,4 @@
-import {createSeedPrufDocuments, SHEET_TABS} from '../data/seedData';
+import {createEmptyPrufDocuments, SHEET_TABS} from '../data/seedData';
 import type {
   GASConfig,
   PrufDocument,
@@ -156,25 +156,30 @@ export function parseMatrixToPrufDoc(
     return baseline;
   }
 
-  // Start with a clean slate for sheet-derived fields so deletions in the source
-  // sheet immediately apply in the web app (never carry over removed ACC stamps, notes, or links).
+  // Start with a clean slate for ALL sheet-derived fields so edits and deletions
+  // in the source sheet immediately apply in the web app with zero dummy leftovers.
   const nextDoc: PrufDocument = {
-    ...baseline,
+    tab,
+    judulUtama: '',
+    namaTbkBlend: '',
+    noDokumen: '',
     pelaksanaanPruf: '',
     periodePruf: '',
     tglBlend: '',
     peruntukanMerk: '',
+    baseGr: 1000,
+    targetKg: baseline.targetKg || 600,
     catatan: '',
     lokasiTanggal: '',
     accOperasional: {
       approved: false,
-      jabatan: baseline.accOperasional?.jabatan || 'Manajer Operasional',
-      nama: baseline.accOperasional?.nama || '',
+      jabatan: 'Manajer Operasional',
+      nama: '',
     },
     accDirektur: {
       approved: false,
-      jabatan: baseline.accDirektur?.jabatan || 'Direktur',
-      nama: baseline.accDirektur?.nama || '',
+      jabatan: 'Direktur',
+      nama: '',
     },
     prufDownloadUrl:
       source === 'csv' && baseline.prufDownloadUrl
@@ -433,10 +438,9 @@ export function parseMatrixToPrufDoc(
       }
 
       if (capCandidates.length > 0) {
-        // Prefer candidate matching baseline targetKg (e.g. 360 on F REGULER, 140 on TIS, 600 on 153/KARANG),
-        // else explicit 'Kg' suffix, else non-500 candidate, else last candidate.
+        // Prioritize explicit 'Kg' suffix (e.g. 600 Kg, 140 Kg), else non-500 capacity (e.g. 360),
+        // else last capacity column in the sheet header.
         const picked =
-          capCandidates.find((c) => Math.abs(c.val - baseline.targetKg) < 0.1) ||
           capCandidates.find((c) => c.hasKg) ||
           capCandidates.find((c) => c.val !== 500) ||
           capCandidates[capCandidates.length - 1];
@@ -670,7 +674,7 @@ export async function syncAllTabs(
   source: 'gas' | 'csv';
   warnings: string[];
 }> {
-  const baselines = currentDocs || createSeedPrufDocuments();
+  const baselines = currentDocs || createEmptyPrufDocuments();
 
   return probeApiOrStatic('/api/health', async () => {
     const warnings: string[] = [];

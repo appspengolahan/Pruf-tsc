@@ -1,5 +1,5 @@
 import {
-  createSeedPrufDocuments,
+  createEmptyPrufDocuments,
   DEFAULT_GAS_URL,
   DEFAULT_SPREADSHEET_ID,
   DEFAULT_USERS,
@@ -14,7 +14,7 @@ import type {
 import {toGoogleDriveDownloadUrl} from '../utils/formatters';
 
 const KEYS = {
-  DOCS: 'pruf_tsc_docs_v3',
+  DOCS: 'pruf_tsc_docs_v4',
   USERS: 'pruf_tsc_users_v1',
   ACTIVE_USER_ID: 'pruf_tsc_active_user_id_v1',
   GAS_CONFIG: 'pruf_tsc_gas_config_v1',
@@ -65,19 +65,14 @@ function writeCached<T>(key: string, value: T): void {
 export function loadCachedPrufDocs(): Record<SheetTabKey, PrufDocument> {
   const docs = readCached<Record<SheetTabKey, PrufDocument>>(
     KEYS.DOCS,
-    createSeedPrufDocuments
+    createEmptyPrufDocuments
   );
-  const seed = createSeedPrufDocuments();
+  const emptyTemplate = createEmptyPrufDocuments();
   const normalized = {...docs};
-  (Object.keys(seed) as SheetTabKey[]).forEach((k) => {
+  (Object.keys(emptyTemplate) as SheetTabKey[]).forEach((k) => {
     const doc = normalized[k];
-    if (!doc || (!Array.isArray(doc.rows) || (doc.rows.length === 0 && doc.source !== 'local'))) {
-      normalized[k] = {
-        ...seed[k],
-        prufDownloadUrl: doc?.prufDownloadUrl
-          ? toGoogleDriveDownloadUrl(doc.prufDownloadUrl)
-          : seed[k].prufDownloadUrl,
-      };
+    if (!doc || !Array.isArray(doc.rows)) {
+      normalized[k] = emptyTemplate[k];
     } else {
       normalized[k] = {
         ...doc,

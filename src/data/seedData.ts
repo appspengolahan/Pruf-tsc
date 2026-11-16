@@ -1,7 +1,5 @@
 import type {
   PrufDocument,
-  PrufGroupKey,
-  PrufRow,
   RBACUser,
   SheetTabKey,
   SheetTabMeta,
@@ -76,291 +74,46 @@ export const DEFAULT_USERS: RBACUser[] = [
   },
 ];
 
-function row(
-  prefix: string,
-  idx: number,
-  group: PrufGroupKey,
-  rincian: string,
-  pct: number,
-  kodeIntern = '',
-  keterangan = '',
-  verified = true
-): PrufRow {
+function createEmptyPrufDoc(
+  tab: SheetTabKey,
+  defaultTargetKg: number
+): PrufDocument {
   return {
-    id: `${prefix}-${idx}`,
-    group,
-    rincian,
-    kodeIntern,
-    pct,
-    keterangan,
-    verified,
-    verifiedBy: verified ? 'Lalu Mahendra AA.' : undefined,
-    verifiedAt: verified ? '2026-11-12T10:00:00+07:00' : undefined,
+    tab,
+    judulUtama: '',
+    namaTbkBlend: '',
+    noDokumen: '',
+    pelaksanaanPruf: '',
+    periodePruf: '',
+    tglBlend: '',
+    peruntukanMerk: '',
+    baseGr: 1000,
+    targetKg: defaultTargetKg,
+    rows: [],
+    catatan: '',
+    lokasiTanggal: '',
+    accOperasional: {
+      approved: false,
+      jabatan: 'Manajer Operasional',
+      nama: '',
+    },
+    accDirektur: {
+      approved: false,
+      jabatan: 'Direktur',
+      nama: '',
+    },
+    prufDownloadUrl: '',
+    updatedAt: '',
+    source: 'local',
   };
 }
 
-const SHARED_TOBACCO_153_AND_TIS: PrufRow[] = [
-  // GROUP 1
-  row('t1', 1, 'GROUP 1', 'Madura 2024 (BAT) R', 32.0),
-  row('t1', 2, 'GROUP 1', 'Hang Madura 2024 (BAT)', 0.5),
-  row('t1', 3, 'GROUP 1', 'Maesan 2024 (HS)', 1.0),
-  row('t1', 4, 'GROUP 1', 'Paiton 2024 (VJI)', 4.0),
-  row('t1', 5, 'GROUP 1', 'Mranggen 2024 (LL)', 3.0),
-  row('t1', 6, 'GROUP 1', 'Weleri 2024 (HK)', 4.5),
-  row('t1', 7, 'GROUP 1', 'Weleri Grade B (2021)', 0.5),
-  // GROUP 2
-  row('t1', 8, 'GROUP 2', 'Sapudi 2024 (GF)', 1.5),
-  row('t1', 9, 'GROUP 2', 'Besuki 2025 (ZN)', 0.5),
-  row('t1', 10, 'GROUP 2', 'Beringin 2024 (HS)', 2.0),
-  // GROUP 3
-  row('t1', 11, 'GROUP 3', 'Amerika 2025 (BO1)', 6.0, 'BO1'),
-  row('t1', 12, 'GROUP 3', 'Zimbabwe B1L (2023)', 5.0, 'B1L'),
-  row('t1', 13, 'GROUP 3', 'Zimbabwe 2025 (L2OF/P)', 2.0),
-  row('t1', 14, 'GROUP 3', 'Zimbabwe 2025 (HR) L1OF', 5.0, 'L1OF'),
-  row('t1', 15, 'GROUP 3', 'Zimbabwe M1L (2023)', 3.0, 'M1L'),
-  row('t1', 16, 'GROUP 3', 'Lombok 2024 (FS) - 1', 1.0, 'B1LF'),
-  row('t1', 17, 'GROUP 3', 'Lombok 2024 (BE) - 1', 3.0, 'BO+OF'),
-  row('t1', 18, 'GROUP 3', 'Zambia M1L (2023)', 2.0, 'M1L'),
-  row('t1', 19, 'GROUP 3', 'Brazil Grade B (2022)', 1.0, 'X30F/B20F'),
-  row('t1', 20, 'GROUP 3', 'Brazil 2025 (BOA)', 4.0, 'BOA'),
-  row('t1', 21, 'GROUP 3', 'Diet Trial - 3 Plus (2026)', 1.0),
-  // GROUP 4
-  row('t1', 22, 'GROUP 4', 'Kasturi 2023 (ST)', 1.0),
-  row('t1', 23, 'GROUP 4', 'Kasturi 2024 (BE) - 1', 3.5),
-  row('t1', 24, 'GROUP 4', 'Hang Boyolali 2024 (FS)', 0.5),
-  row('t1', 25, 'GROUP 4', 'Krs. Garut 2025 (MYN)', 1.5),
-  row('t1', 26, 'GROUP 4', 'Krs. Garut 2024 (MYN)', 1.5),
-  row('t1', 27, 'GROUP 4', 'Janturan Jombang 2024 (MYN)', 0.5),
-  row('t1', 28, 'GROUP 4', 'Janturan Boyolali 2024 (VJI)', 1.0),
-  // GROUP 6
-  row('t1', 29, 'GROUP 6', 'Joning 2024 (AR)', 0.5),
-  row('t1', 30, 'GROUP 6', 'Garut 2024 (FR)', 1.0),
-  row('t1', 31, 'GROUP 6', 'Garut 2025 (FR)', 1.0),
-  row('t1', 32, 'GROUP 6', 'Ploso 2024 (MYN)', 5.5),
-];
-
-export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
-  const nowIso = '2026-11-12T11:10:00+07:00';
-
-  const doc153: PrufDocument = {
-    tab: '153 BK',
-    judulUtama: 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )',
-    namaTbkBlend: '153 - BK',
-    noDokumen: '26A/P-153BK/PPI/BKR/XI/2026',
-    pelaksanaanPruf: '12 November 2026',
-    periodePruf: '16 - 28 Nov 2026',
-    tglBlend: '16 - 28 Nov 2026',
-    peruntukanMerk:
-      '153 Lista KML Hijau 10,16 - 153 Lista KML 10,12,20 - 153 LN 10,12 ,10+2 - 153 LN SALITI 12,20 - 153 LN SALITI 12 Hijau Tua',
-    baseGr: 1000,
-    targetKg: 600,
-    rows: [
-      ...SHARED_TOBACCO_153_AND_TIS.map((r, i) => ({...r, id: `153-${i + 1}`})),
-      row('153', 33, 'SAOS', 'Cassing Jadi 153 - BK (Musim Panas)', 6.5, '', 'Catatan 4', true),
-      row('153', 34, 'SAOS', 'Top Jadi 153 - BK (Segala Cuaca)', 3.5, '', '', true),
-      row('153', 35, 'CENGKEH', 'Manado Grade A (2024)', 36.0, 'A', '', true),
-    ],
-    catatan: '',
-    lokasiTanggal: 'Malang, 12 November 2026',
-    accOperasional: {
-      approved: false,
-      jabatan: 'Manajer Operasional',
-      nama: 'Lalu Mahendra AA.',
-    },
-    accDirektur: {
-      approved: false,
-      jabatan: 'Direktur',
-      nama: 'Bpk. Denny Wibisono',
-    },
-    prufDownloadUrl: '',
-    updatedAt: nowIso,
-    source: 'local',
-  };
-
-  const docTis: PrufDocument = {
-    tab: 'TIS KBT24',
-    judulUtama: 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )',
-    namaTbkBlend: 'TIS - KBT24',
-    noDokumen: '26C/P-TIS/PPI/BKR/XI/2026',
-    pelaksanaanPruf: '12 November 2026',
-    periodePruf: '16 - 28 Nov 2026',
-    tglBlend: '16 - 28 Nov 2026',
-    peruntukanMerk: 'Kabel',
-    baseGr: 1000,
-    targetKg: 140,
-    rows: [
-      ...SHARED_TOBACCO_153_AND_TIS.map((r, i) => ({...r, id: `tis-${i + 1}`})),
-      row('tis', 33, 'SAOS', 'Cassing Jadi Teh Kretek Reguler - BK (Musim Panas)', 6.5, '', '', true),
-      row('tis', 34, 'SAOS', 'Top Jadi Teh Kretek Reguler - BK (Segala Cuaca)', 4.5, '', '', true),
-      row('tis', 35, 'CENGKEH', 'Manado Grade A (2024)', 36.0, 'A', '', true),
-    ],
-    catatan: '',
-    lokasiTanggal: 'Malang, 12 November 2026',
-    accOperasional: {
-      approved: false,
-      jabatan: 'Manajer Operasional',
-      nama: 'Lalu Mahendra AA.',
-    },
-    accDirektur: {
-      approved: false,
-      jabatan: 'Direktur',
-      nama: 'Bpk. Denny Wibisono',
-    },
-    prufDownloadUrl: '',
-    updatedAt: nowIso,
-    source: 'local',
-  };
-
-  const docKarang: PrufDocument = {
-    tab: 'KARANG BK',
-    judulUtama: 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )',
-    namaTbkBlend: 'KARANG - BK',
-    noDokumen: '26B/P-KARANGBK/PPI/BKR/XI/2026',
-    pelaksanaanPruf: '12 November 2026',
-    periodePruf: '16 - 28 Nov 2026',
-    tglBlend: '16 - 28 Nov 2026',
-    peruntukanMerk:
-      'Karang - Karang 20 - Karang 10+2 - Karang 153 Lista KML',
-    baseGr: 1000,
-    targetKg: 600,
-    rows: [
-      // GROUP 1
-      row('krg', 1, 'GROUP 1', 'Madura 2024 (BAT) R', 32.0),
-      row('krg', 2, 'GROUP 1', 'Maesan 2024 (HS)', 1.0),
-      row('krg', 3, 'GROUP 1', 'Paiton 2024 (VJI)', 4.0),
-      row('krg', 4, 'GROUP 1', 'Mranggen 2024 (LL)', 3.0),
-      row('krg', 5, 'GROUP 1', 'Weleri 2024 (HK)', 4.5),
-      row('krg', 6, 'GROUP 1', 'Weleri Grade B (2021)', 0.5),
-      // GROUP 2
-      row('krg', 7, 'GROUP 2', 'Sapudi 2024 (GF)', 1.5),
-      row('krg', 8, 'GROUP 2', 'Besuki 2025 (ZN)', 0.5),
-      row('krg', 9, 'GROUP 2', 'Beringin 2024 (HS)', 2.0),
-      // GROUP 3
-      row('krg', 10, 'GROUP 3', 'Amerika 2025 (BO1)', 7.0, 'BO1'),
-      row('krg', 11, 'GROUP 3', 'Zimbabwe B1L (2023)', 4.0, 'B1L'),
-      row('krg', 12, 'GROUP 3', 'Zimbabwe 2025 (L2OF/P)', 2.0),
-      row('krg', 13, 'GROUP 3', 'Zimbabwe 2025 (HR) L1OF', 5.0, 'L1OF'),
-      row('krg', 14, 'GROUP 3', 'Zimbabwe M1L (2023)', 3.0, 'M1L'),
-      row('krg', 15, 'GROUP 3', 'Lombok 2024 (FS) - 1', 1.0, 'B1LF'),
-      row('krg', 16, 'GROUP 3', 'Lombok 2024 (BE) - 1', 3.0, 'BO+OF'),
-      row('krg', 17, 'GROUP 3', 'Zambia M1L (2023)', 1.5, 'M1L'),
-      row('krg', 18, 'GROUP 3', 'Brazil Grade B (2022)', 1.0, 'X30F/B20F'),
-      row('krg', 19, 'GROUP 3', 'Brazil 2025 (BOA)', 4.0, 'BOA'),
-      row('krg', 20, 'GROUP 3', 'Diet Trial - 1 (2025)', 0.5),
-      row('krg', 21, 'GROUP 3', 'Diet Trial - 3 (2026)', 1.5),
-      // GROUP 4
-      row('krg', 22, 'GROUP 4', 'Kasturi 2023 (ST)', 1.0),
-      row('krg', 23, 'GROUP 4', 'Kasturi 2024 (BE) - 1', 3.5),
-      row('krg', 24, 'GROUP 4', 'Hang Boyolali 2024 (FS)', 0.5),
-      row('krg', 25, 'GROUP 4', 'Krs. Garut 2025 (MYN)', 1.5),
-      row('krg', 26, 'GROUP 4', 'Krs. Garut 2024 (MYN)', 1.5),
-      row('krg', 27, 'GROUP 4', 'Janturan Jombang 2024 (MYN)', 0.5),
-      row('krg', 28, 'GROUP 4', 'Janturan Boyolali 2024 (VJI)', 1.0),
-      // GROUP 6
-      row('krg', 29, 'GROUP 6', 'Joning 2024 (AR)', 0.5),
-      row('krg', 30, 'GROUP 6', 'Garut 2024 (FR)', 1.0),
-      row('krg', 31, 'GROUP 6', 'Garut 2025 (FR)', 1.0),
-      row('krg', 32, 'GROUP 6', 'Ploso 2024 (MYN)', 5.5),
-      // SAOS & CENGKEH
-      row('krg', 33, 'SAOS', 'Cassing Jadi Karang - BK (Musim Panas)', 6.4),
-      row('krg', 34, 'SAOS', 'Top Jadi Karang - BK (Segala Cuaca)', 3.4),
-      row('krg', 35, 'CENGKEH', 'Manado Grade A (2024)', 36.0),
-    ],
-    catatan:
-      'Alur Proses > Input Tembakau - Input Cassing - Input Top - Input Diet Trial 1 + Diet Trial 3 - Input Cengkeh',
-    lokasiTanggal: 'Malang, 12 November 2026',
-    accOperasional: {
-      approved: false,
-      jabatan: 'Manajer Operasional',
-      nama: 'Lalu Mahendra AA.',
-    },
-    accDirektur: {
-      approved: false,
-      jabatan: 'Direktur',
-      nama: 'Bpk. Denny Wibisono',
-    },
-    prufDownloadUrl: '',
-    updatedAt: nowIso,
-    source: 'local',
-  };
-
-  const docFReguler: PrufDocument = {
-    tab: 'F REGULER (LN, AVE)',
-    judulUtama: 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )',
-    namaTbkBlend: 'F REGULER (LN - AVE)',
-    noDokumen: '26D/P-FREG/PPI/BKR/XI/2026',
-    pelaksanaanPruf: '12 November 2026',
-    periodePruf: '16 - 28 Nov 2026',
-    tglBlend: '16 - 28 Nov 2026',
-    peruntukanMerk:
-      '153 Filter KML 12 - 153 Filter LN 12 - 153 Filter Lista KKML Hijau 16 - AVE 12 - AVE 20',
-    baseGr: 1000,
-    targetKg: 360,
-    rows: [
-      // GROUP 1
-      row('freg', 1, 'GROUP 1', 'Madura 2024 (BAT) R', 28.0),
-      row('freg', 2, 'GROUP 1', 'Hang Madura Grade B (2021)', 1.0),
-      row('freg', 3, 'GROUP 1', 'Hang Madura 2024 (BAT)', 1.0),
-      row('freg', 4, 'GROUP 1', 'Maesan 2024 (HS)', 1.0),
-      row('freg', 5, 'GROUP 1', 'Paiton 2023 (DM)', 4.0),
-      row('freg', 6, 'GROUP 1', 'Mranggen 2024 (LL)', 3.0),
-      row('freg', 7, 'GROUP 1', 'Weleri 2024 (HK)', 5.0),
-      // GROUP 2
-      row('freg', 8, 'GROUP 2', 'Beringin 2024 (HS)', 2.5),
-      row('freg', 9, 'GROUP 2', 'Tbk Escot 2024 (BE)', 3.5),
-      // GROUP 3
-      row('freg', 10, 'GROUP 3', 'Amerika 2025 (BO1)', 6.0, 'BO1'),
-      row('freg', 11, 'GROUP 3', 'Zimbabwe B1L (2023)', 4.0, 'B1L'),
-      row('freg', 12, 'GROUP 3', 'Zimbabwe 2025 (L2OF/P)', 1.0),
-      row('freg', 13, 'GROUP 3', 'Zimbabwe 2025 (HR) L1OF', 4.0, 'L1OF'),
-      row('freg', 14, 'GROUP 3', 'Zimbabwe M1L (2023)', 3.5, 'M1L'),
-      row('freg', 15, 'GROUP 3', 'Lombok 2024 (FS) - 1', 2.0, 'B1LF'),
-      row('freg', 16, 'GROUP 3', 'Lombok 2024 (BE) - 1', 2.0, 'BO+OF'),
-      row('freg', 17, 'GROUP 3', 'Zambia M1L (2023)', 2.0, 'M1L'),
-      row('freg', 18, 'GROUP 3', 'Brazil 2025 (BOA)', 5.0, 'BOA'),
-      row('freg', 19, 'GROUP 3', 'Expanded Stem - 1B Grade B (2023)', 0.5, 'AG'),
-      row('freg', 20, 'GROUP 3', 'Diet Trial - 1 (2025)', 1.0),
-      row('freg', 21, 'GROUP 3', 'Diet Trial - 3 (2026)', 3.0),
-      row('freg', 22, 'GROUP 3', 'FCV Diet Tobacco SGI (2024)', 1.0),
-      // GROUP 4
-      row('freg', 23, 'GROUP 4', 'Kasturi 2024 (BE) - 1', 4.0),
-      row('freg', 24, 'GROUP 4', 'Hang Boyolali 2024 (FS)', 1.0),
-      row('freg', 25, 'GROUP 4', 'Krs. Garut 2024 (MYN)', 2.0),
-      row('freg', 26, 'GROUP 4', 'Janturan Jombang 2024 (MYN)', 1.5),
-      row('freg', 27, 'GROUP 4', 'Janturan Boyolali 2024 (VJI)', 1.0),
-      // GROUP 6
-      row('freg', 28, 'GROUP 6', 'Garut 2024 (FR)', 1.0),
-      row('freg', 29, 'GROUP 6', 'Garut 2025 (FR)', 0.5),
-      row('freg', 30, 'GROUP 6', 'Ploso 2024 (MYN)', 5.0),
-      // SAOS, BLEND REFRESH & CENGKEH
-      row('freg', 31, 'SAOS', 'Cassing Jadi F Reguler (LN, AVE) Segala Cuaca', 2.4),
-      row('freg', 32, 'SAOS', 'Top Jadi F Reguler (LN, AVE) Segala Cuaca', 1.9),
-      row('freg', 33, 'REFRESH', 'F Reguler LN, AVE (Kode B)', 1.0),
-      row('freg', 34, 'CENGKEH', 'Manado Grade A (2024)', 35.0),
-    ],
-    catatan:
-      'Alur Proses > Input Tembakau - Input Cassing - Input Top - Input FCV Diet Tobacco - Input Diet Trial 1 + Diet Trial 3 - Input Cengkeh',
-    lokasiTanggal: 'Malang, 12 November 2026',
-    accOperasional: {
-      approved: false,
-      jabatan: 'Manajer Operasional',
-      nama: 'Lalu Mahendra AA.',
-    },
-    accDirektur: {
-      approved: false,
-      jabatan: 'Direktur',
-      nama: 'Bpk. Denny Wibisono',
-    },
-    prufDownloadUrl: '',
-    updatedAt: nowIso,
-    source: 'local',
-  };
-
+export function createEmptyPrufDocuments(): Record<SheetTabKey, PrufDocument> {
   return {
-    '153 BK': doc153,
-    'TIS KBT24': docTis,
-    'KARANG BK': docKarang,
-    'F REGULER (LN, AVE)': docFReguler,
+    '153 BK': createEmptyPrufDoc('153 BK', 600),
+    'TIS KBT24': createEmptyPrufDoc('TIS KBT24', 140),
+    'KARANG BK': createEmptyPrufDoc('KARANG BK', 600),
+    'F REGULER (LN, AVE)': createEmptyPrufDoc('F REGULER (LN, AVE)', 360),
   };
 }
 

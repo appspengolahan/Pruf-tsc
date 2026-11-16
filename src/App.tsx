@@ -534,10 +534,12 @@ export default function App() {
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
             <div className="min-w-0">
               <h2 className="font-display text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {activeTabMeta.blendTitle}
+                {activeDoc.namaTbkBlend
+                  ? `NAMA TBK. BLEND : ${activeDoc.namaTbkBlend}`
+                  : activeTabMeta.blendTitle}
               </h2>
               <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                {activeTabMeta.description}
+                {activeDoc.judulUtama || activeTabMeta.description}
               </p>
             </div>
 
@@ -610,7 +612,7 @@ export default function App() {
                     : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
               >
-                {t.key} ({tabCounts[t.key]})
+                {t.key} (<span className="font-mono tabular-nums">{tabCounts[t.key]}</span>)
               </button>
             ))}
           </div>
@@ -676,6 +678,8 @@ export default function App() {
             doc={activeDoc}
             currentRole={activeUser.role}
             isPublicPortal={isPublicPortal}
+            isSyncing={isSyncing}
+            onRefreshSync={() => void handleSyncNow(false)}
             onChangeTargetKg={handleChangeTargetKg}
             onToggleRowVerify={handleToggleRowVerify}
             onAddRow={(group) => {

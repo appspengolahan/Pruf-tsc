@@ -29,6 +29,8 @@ interface PrufSheetTableProps {
   doc: PrufDocument;
   currentRole: RoleType;
   isPublicPortal?: boolean;
+  isSyncing?: boolean;
+  onRefreshSync?: () => void;
   onChangeTargetKg: (nextKg: number) => void;
   onToggleRowVerify: (rowId: string) => void;
   onAddRow: (defaultGroup?: PrufGroupKey) => void;
@@ -46,6 +48,8 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
   doc,
   currentRole,
   isPublicPortal = false,
+  isSyncing = false,
+  onRefreshSync,
   onChangeTargetKg,
   onToggleRowVerify,
   onAddRow,
@@ -297,14 +301,16 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 text-center">
             <h3 className="font-display text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
-              {doc.judulUtama}
+              {doc.judulUtama || 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )'}
             </h3>
             <p className="mt-0.5 font-display text-sm sm:text-base font-bold text-slate-900 dark:text-emerald-400">
-              NAMA TBK. BLEND : {doc.namaTbkBlend}
+              NAMA TBK. BLEND : {doc.namaTbkBlend || doc.tab}
             </p>
-            <p className="mt-0.5 font-mono text-xs text-slate-600 dark:text-slate-300">
-              No : {doc.noDokumen}
-            </p>
+            {doc.noDokumen && (
+              <p className="mt-0.5 font-mono text-xs text-slate-600 dark:text-slate-300">
+                No : {doc.noDokumen}
+              </p>
+            )}
           </div>
 
           {canModify && (
@@ -409,6 +415,35 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
           </thead>
 
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            {doc.rows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={isPublicPortal ? 6 : 7}
+                  className="py-10 px-4 text-center text-sm text-slate-500 dark:text-slate-400"
+                >
+                  {isSyncing ? (
+                    <span>Menyelaraskan data asli dari Google Sheets PRUF ({doc.tab})...</span>
+                  ) : (
+                    <div className="space-y-3">
+                      <p>
+                        {doc.source === 'local'
+                          ? 'Belum ada data tersinkron dari Google Sheets PRUF.'
+                          : 'Tidak ada bahan aktif dengan nilai pada Kolom G di sheet ini.'}
+                      </p>
+                      {onRefreshSync && (
+                        <button
+                          type="button"
+                          onClick={onRefreshSync}
+                          className="min-h-[44px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-2"
+                        >
+                          Sinkronkan dari Google Sheets
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
             {/* GROUP 1..GROUP 6 */}
             {TOBACCO_GROUPS.map((groupKey) => {
               const groupRows = rowsByGroup[groupKey];
@@ -420,7 +455,7 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
                   {/* Group Subtotal Header Row */}
                   <tr className="bg-slate-100/90 dark:bg-slate-800/70 font-bold text-slate-900 dark:text-white border-t border-slate-300 dark:border-slate-700">
                     <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700">
-                      {groupKey} ({formatPct(gTot.pct)})
+                      {groupKey} (<span className="font-mono tabular-nums">{formatPct(gTot.pct)}</span>)
                     </td>
                     <td className="py-2 px-2.5 border-r border-slate-200 dark:border-slate-700" />
                     <td className="py-2 px-3 text-right font-mono tabular-nums border-r border-slate-200 dark:border-slate-700">

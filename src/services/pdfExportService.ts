@@ -25,16 +25,26 @@ export function exportPrufPdf(docData: PrufDocument, currentUser: RBACUser): voi
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11.5);
-  doc.text(docData.judulUtama, pageWidth / 2, 12, {align: 'center'});
+  doc.text(
+    docData.judulUtama || 'KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )',
+    pageWidth / 2,
+    12,
+    {align: 'center'}
+  );
 
   doc.setFontSize(10.5);
-  doc.text(`NAMA TBK. BLEND : ${docData.namaTbkBlend}`, pageWidth / 2, 17.5, {
-    align: 'center',
-  });
+  doc.text(
+    `NAMA TBK. BLEND : ${docData.namaTbkBlend || docData.tab}`,
+    pageWidth / 2,
+    17.5,
+    {align: 'center'}
+  );
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`No : ${docData.noDokumen}`, pageWidth / 2, 22, {align: 'center'});
+  if (docData.noDokumen) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text(`No : ${docData.noDokumen}`, pageWidth / 2, 22, {align: 'center'});
+  }
 
   // 2x2 Document Metadata Block
   doc.setFontSize(8);
