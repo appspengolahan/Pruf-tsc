@@ -1,5 +1,6 @@
 import {
   createSeedPrufDocuments,
+  DEFAULT_GAS_URL,
   DEFAULT_SPREADSHEET_ID,
   DEFAULT_USERS,
 } from '../data/seedData';
@@ -13,7 +14,7 @@ import type {
 import {toGoogleDriveDownloadUrl} from '../utils/formatters';
 
 const KEYS = {
-  DOCS: 'pruf_tsc_docs_v2',
+  DOCS: 'pruf_tsc_docs_v3',
   USERS: 'pruf_tsc_users_v1',
   ACTIVE_USER_ID: 'pruf_tsc_active_user_id_v1',
   GAS_CONFIG: 'pruf_tsc_gas_config_v1',
@@ -120,14 +121,20 @@ export function saveActiveUserId(userId: string): void {
 }
 
 export function loadGasConfig(): GASConfig {
-  return readCached<GASConfig>(KEYS.GAS_CONFIG, () => ({
+  const cfg = readCached<GASConfig>(KEYS.GAS_CONFIG, () => ({
     spreadsheetId: DEFAULT_SPREADSHEET_ID,
-    gasUrl: '',
+    gasUrl: DEFAULT_GAS_URL,
     autoSync: true,
     lastSyncAt: null,
     lastSyncSource: 'none',
     lastSyncError: null,
   }));
+  if (!cfg.gasUrl || !cfg.gasUrl.trim()) {
+    const updated: GASConfig = {...cfg, gasUrl: DEFAULT_GAS_URL};
+    writeCached(KEYS.GAS_CONFIG, updated);
+    return updated;
+  }
+  return cfg;
 }
 
 export function saveGasConfig(config: GASConfig): void {

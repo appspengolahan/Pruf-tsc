@@ -289,7 +289,9 @@ export function exportPrufPdf(docData: PrufDocument, currentUser: RBACUser): voi
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text(docData.lokasiTanggal, pageWidth / 2, sigY + 7, {align: 'center'});
+  if (docData.lokasiTanggal) {
+    doc.text(docData.lokasiTanggal, pageWidth / 2, sigY + 7, {align: 'center'});
+  }
 
   doc.text('Ditetapkan,', 42, sigY + 13, {align: 'center'});
   doc.text(docData.accOperasional.jabatan, 42, sigY + 17, {align: 'center'});
@@ -303,34 +305,34 @@ export function exportPrufPdf(docData: PrufDocument, currentUser: RBACUser): voi
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(5, 150, 105);
-    doc.text(
-      `ACC Online · ${formatWibDateTime(docData.accOperasional.approvedAt)}`,
-      42,
-      sigY + 23,
-      {align: 'center'}
-    );
+    const labelOp = /\bACC\b/i.test(docData.accOperasional.approvedAt || '')
+      ? docData.accOperasional.approvedAt || ''
+      : `ACC Online · ${formatWibDateTime(docData.accOperasional.approvedAt)}`;
+    doc.text(labelOp, 42, sigY + 23, {align: 'center'});
   }
   if (docData.accDirektur.approved) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(5, 150, 105);
-    doc.text(
-      `ACC Online · ${formatWibDateTime(docData.accDirektur.approvedAt)}`,
-      pageWidth - 42,
-      sigY + 23,
-      {align: 'center'}
-    );
+    const labelDir = /\bACC\b/i.test(docData.accDirektur.approvedAt || '')
+      ? docData.accDirektur.approvedAt || ''
+      : `ACC Direktur · ${formatWibDateTime(docData.accDirektur.approvedAt)}`;
+    doc.text(labelDir, pageWidth - 42, sigY + 23, {align: 'center'});
   }
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`( ${docData.accOperasional.nama} )`, 42, sigY + 30, {
-    align: 'center',
-  });
-  doc.text(`( ${docData.accDirektur.nama} )`, pageWidth - 42, sigY + 30, {
-    align: 'center',
-  });
+  if (docData.accOperasional.nama) {
+    doc.text(`( ${docData.accOperasional.nama} )`, 42, sigY + 30, {
+      align: 'center',
+    });
+  }
+  if (docData.accDirektur.nama) {
+    doc.text(`( ${docData.accDirektur.nama} )`, pageWidth - 42, sigY + 30, {
+      align: 'center',
+    });
+  }
 
   doc.setFont('helvetica', 'bolditalic');
   doc.setFontSize(7.5);

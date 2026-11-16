@@ -156,11 +156,30 @@ export function parseMatrixToPrufDoc(
     return baseline;
   }
 
+  // Start with a clean slate for sheet-derived fields so deletions in the source
+  // sheet immediately apply in the web app (never carry over removed ACC stamps, notes, or links).
   const nextDoc: PrufDocument = {
     ...baseline,
-    prufDownloadUrl: baseline.prufDownloadUrl
-      ? toGoogleDriveDownloadUrl(baseline.prufDownloadUrl)
-      : '',
+    pelaksanaanPruf: '',
+    periodePruf: '',
+    tglBlend: '',
+    peruntukanMerk: '',
+    catatan: '',
+    lokasiTanggal: '',
+    accOperasional: {
+      approved: false,
+      jabatan: baseline.accOperasional?.jabatan || 'Manajer Operasional',
+      nama: baseline.accOperasional?.nama || '',
+    },
+    accDirektur: {
+      approved: false,
+      jabatan: baseline.accDirektur?.jabatan || 'Direktur',
+      nama: baseline.accDirektur?.nama || '',
+    },
+    prufDownloadUrl:
+      source === 'csv' && baseline.prufDownloadUrl
+        ? toGoogleDriveDownloadUrl(baseline.prufDownloadUrl)
+        : '',
     rows: [],
     updatedAt: new Date().toISOString(),
     source,
@@ -189,6 +208,7 @@ export function parseMatrixToPrufDoc(
   let verColIdx = -1;
   let linkColIdx = -1;
   let isStructuredExport = false;
+  let passedGrandTotal = false;
 
   for (let r = 0; r < matrix.length; r++) {
     const rawRow = matrix[r] || [];
@@ -217,12 +237,17 @@ export function parseMatrixToPrufDoc(
     const first = cells[labelColIdx] || cells[0] || '';
     const firstUp = first.toUpperCase();
 
+    if (firstUp.includes('KETETAPAN PRUF')) {
+      nextDoc.judulUtama = first;
+      continue;
+    }
+
     // Extract document metadata lines dynamically from source sheet
     if (firstUp.includes('NAMA TBK')) {
       const colonVal = first.includes(':') ? first.split(':').slice(1).join(':').trim() : '';
       const nextCellVal = cells
         .slice(labelColIdx + 1, labelColIdx + 5)
-        .find((c) => c && c !== 'TRUE' && c !== 'FALSE');
+        .find((c) => c && c !== 'TRUE' && c !== 'FALSE' && !c.toUpperCase().includes('HOME'));
       const val = colonVal || nextCellVal || '';
       if (val) nextDoc.namaTbkBlend = val.replace(/^:/, '').trim();
       continue;
@@ -244,7 +269,10 @@ export function parseMatrixToPrufDoc(
       if (val) nextDoc.pelaksanaanPruf = val.replace(/^:/, '').trim();
       const tglIdx = cells.findIndex((c) => c.toUpperCase().includes('3.'));
       if (tglIdx >= 0) {
-        const tglVal = cells.slice(tglIdx + 1).find((c) => c) || '';
+        const tglVal =
+          cells
+            .slice(tglIdx + 1)
+            .find((c) => c && !c.toUpperCase().includes('LEMBAR PRUF')) || '';
         if (tglVal) nextDoc.tglBlend = tglVal.replace(/^:/, '').trim();
       }
       continue;
@@ -257,17 +285,99 @@ export function parseMatrixToPrufDoc(
       if (val) nextDoc.periodePruf = val.replace(/^:/, '').trim();
       const merkIdx = cells.findIndex((c) => c.toUpperCase().includes('4.'));
       if (merkIdx >= 0) {
-        const merkVal = cells.slice(merkIdx + 1).find((c) => c) || '';
-        if (merkVal) nextDoc.peruntukanMerk = merkVal.replace(/^:/, '').trim();
+        const afterMerk = cells
+          .slice(merkIdx + 1)
+          .filter((c) => c && !c.toUpperCase().includes('LEMBAR PRUF'));
+        const colonMerk = afterMerk.find((c) => c.startsWith(':'));
+        const baseMerk = (colonMerk || afterMerk[0] || '').replace(/^:/, '').trim();
+        // Also collect wrapped continuation row right below 4.Peruntukan Merk (if present before NAMA STOCK BAHAN)
+        const nextRowCells = (matrix[r + 1] || []).map((c) => String(c ?? '').trim());
+        const nextFirst = (nextRowCells[labelColIdx] || nextRowCells[0] || '').toUpperCase();
+        const extraMerk =
+          !nextFirst && !nextRowCells.slice(0, merkIdx).some(Boolean)
+            ? nextRowCells
+                .slice(merkIdx)
+                .filter((c) => c && !c.toUpperCase().includes('LEMBAR PRUF'))
+                .join(' ')
+                .trim()
+            : '';
+        const combined = [baseMerk, extraMerk].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        if (combined) nextDoc.peruntukanMerk = combined;
       }
       continue;
     }
 
-    // Extract Catatan line if present in source
-    if (firstUp.startsWith('CATATAN')) {
-      const noteText = first.replace(/^CATATAN\s*:\s*/i, '').trim();
-      if (noteText) nextDoc.catatan = noteText;
+    // Track when we reach the footer section (after GRAND TOTAL)
+    if (
+      firstUp.startsWith('GRAND TOTAL') ||
+      cells.slice(0, 6).some((c) => /^GRAND TOTAL\b/i.test(c))
+    ) {
+      passedGrandTotal = true;
       continue;
+    }
+
+    // Extract Catatan line dynamically from source
+    if (firstUp.startsWith('CATATAN')) {
+      passedGrandTotal = true;
+      const inlineNote = first.replace(/^CATATAN\s*:?\s*/i, '').trim();
+      const extraNote = cells
+        .slice(labelColIdx + 1)
+        .filter((c) => c && c !== ':')
+        .join(' ')
+        .replace(/^:\s*/, '')
+        .trim();
+      nextDoc.catatan = inlineNote || extraNote || '';
+      continue;
+    }
+
+    // Extract Footer Metadata: Tanggal Lokasi, Jabatan, Nama Penandatangan, and optional ACC stamps
+    if (passedGrandTotal || /^(DITETAPKAN|DIKETAHUI|MALANG,|ACC\s|MANAJER|DIREKTUR|\()/i.test(firstUp)) {
+      // Lokasi & Tanggal e.g. "Malang, 12 November 2026"
+      for (const c of cells) {
+        if (!c) continue;
+        if (/^(malang|[a-z]+)\s*,\s*\d{1,2}\s+[a-z]+\s+\d{4}$/i.test(c)) {
+          nextDoc.lokasiTanggal = c;
+        }
+      }
+
+      // Signature parenthesized names e.g. "( Lalu Mahendra AA. )" & "( Bpk. Denny Wibisono )"
+      const parenMatches: Array<{col: number; name: string}> = [];
+      cells.forEach((c, idx) => {
+        const m = /^\(\s*([^)]+?)\s*\)$/.exec(c);
+        if (m?.[1] && !/^\d{4}$/.test(m[1])) {
+          parenMatches.push({col: idx, name: m[1].trim()});
+        }
+      });
+      if (parenMatches.length >= 2) {
+        nextDoc.accOperasional.nama = parenMatches[0].name;
+        nextDoc.accDirektur.nama = parenMatches[parenMatches.length - 1].name;
+      } else if (parenMatches.length === 1) {
+        if (parenMatches[0].col <= 6) {
+          nextDoc.accOperasional.nama = parenMatches[0].name;
+        } else {
+          nextDoc.accDirektur.nama = parenMatches[0].name;
+        }
+      }
+
+      // Only mark ACC approved if an explicit ACC cell actually exists in the source sheet
+      cells.forEach((c, idx) => {
+        if (!c || /^https?:\/\//i.test(c)) return;
+        const cu = c.toUpperCase();
+        if (!/\bACC\b/.test(cu)) return;
+        if (cu.includes('DIREKTUR')) {
+          nextDoc.accDirektur.approved = true;
+          nextDoc.accDirektur.approvedBy = nextDoc.accDirektur.nama || 'Direktur';
+          nextDoc.accDirektur.approvedAt = c;
+        } else if (cu.includes('ONLINE') || cu.includes('OPERASIONAL') || idx <= 6) {
+          nextDoc.accOperasional.approved = true;
+          nextDoc.accOperasional.approvedBy = nextDoc.accOperasional.nama || 'Manajer Operasional';
+          nextDoc.accOperasional.approvedAt = c;
+        }
+      });
+
+      if (passedGrandTotal) {
+        continue;
+      }
     }
 
     // Detect table header columns
@@ -482,11 +592,12 @@ export async function fetchFromGasEndpoint(
   if (!cleanUrl) {
     throw new Error('URL Headless GAS belum diisi.');
   }
-  const url = tab
+  const baseUrl = tab
     ? `${cleanUrl}${cleanUrl.includes('?') ? '&' : '?'}tab=${encodeURIComponent(tab)}`
     : cleanUrl;
+  const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
 
-  const res = await fetch(url, {method: 'GET', cache: 'no-store'});
+  const res = await fetch(url, {method: 'GET', redirect: 'follow'});
   const rawText = await res.text();
   if (rawText.trim().startsWith('<')) {
     throw new Error(

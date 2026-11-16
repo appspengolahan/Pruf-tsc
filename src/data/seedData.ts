@@ -10,6 +10,9 @@ import type {
 export const DEFAULT_SPREADSHEET_ID =
   '1qnTh5PL0oitFtH7tx7pI1r4jBnWk9vgVuUVJnWUAvk4';
 
+export const DEFAULT_GAS_URL =
+  'https://script.google.com/macros/s/AKfycbySzMSgDrxT2NYwpl7tH1ROcdN51weVgGP7ZuF3lcSpoMTluD3skODMY6VlGC-NzDvv/exec';
+
 export const SHEET_TABS: SheetTabMeta[] = [
   {
     key: '153 BK',
@@ -160,18 +163,14 @@ export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
     catatan: '',
     lokasiTanggal: 'Malang, 12 November 2026',
     accOperasional: {
-      approved: true,
+      approved: false,
       jabatan: 'Manajer Operasional',
       nama: 'Lalu Mahendra AA.',
-      approvedBy: 'Lalu Mahendra AA.',
-      approvedAt: '2026-11-12T11:10:00+07:00',
     },
     accDirektur: {
-      approved: true,
+      approved: false,
       jabatan: 'Direktur',
       nama: 'Bpk. Denny Wibisono',
-      approvedBy: 'Bpk. Denny Wibisono',
-      approvedAt: '2026-11-12T11:15:00+07:00',
     },
     prufDownloadUrl: '',
     updatedAt: nowIso,
@@ -198,18 +197,14 @@ export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
     catatan: '',
     lokasiTanggal: 'Malang, 12 November 2026',
     accOperasional: {
-      approved: true,
+      approved: false,
       jabatan: 'Manajer Operasional',
       nama: 'Lalu Mahendra AA.',
-      approvedBy: 'Lalu Mahendra AA.',
-      approvedAt: '2026-11-12T11:10:00+07:00',
     },
     accDirektur: {
-      approved: true,
+      approved: false,
       jabatan: 'Direktur',
       nama: 'Bpk. Denny Wibisono',
-      approvedBy: 'Bpk. Denny Wibisono',
-      approvedAt: '2026-11-12T11:15:00+07:00',
     },
     prufDownloadUrl: '',
     updatedAt: nowIso,
@@ -275,18 +270,14 @@ export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
       'Alur Proses > Input Tembakau - Input Cassing - Input Top - Input Diet Trial 1 + Diet Trial 3 - Input Cengkeh',
     lokasiTanggal: 'Malang, 12 November 2026',
     accOperasional: {
-      approved: true,
+      approved: false,
       jabatan: 'Manajer Operasional',
       nama: 'Lalu Mahendra AA.',
-      approvedBy: 'Lalu Mahendra AA.',
-      approvedAt: '2026-11-12T11:10:00+07:00',
     },
     accDirektur: {
-      approved: true,
+      approved: false,
       jabatan: 'Direktur',
       nama: 'Bpk. Denny Wibisono',
-      approvedBy: 'Bpk. Denny Wibisono',
-      approvedAt: '2026-11-12T11:15:00+07:00',
     },
     prufDownloadUrl: '',
     updatedAt: nowIso,
@@ -351,18 +342,14 @@ export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
       'Alur Proses > Input Tembakau - Input Cassing - Input Top - Input FCV Diet Tobacco - Input Diet Trial 1 + Diet Trial 3 - Input Cengkeh',
     lokasiTanggal: 'Malang, 12 November 2026',
     accOperasional: {
-      approved: true,
+      approved: false,
       jabatan: 'Manajer Operasional',
       nama: 'Lalu Mahendra AA.',
-      approvedBy: 'Lalu Mahendra AA.',
-      approvedAt: '2026-11-12T11:10:00+07:00',
     },
     accDirektur: {
-      approved: true,
+      approved: false,
       jabatan: 'Direktur',
       nama: 'Bpk. Denny Wibisono',
-      approvedBy: 'Bpk. Denny Wibisono',
-      approvedAt: '2026-11-12T11:15:00+07:00',
     },
     prufDownloadUrl: '',
     updatedAt: nowIso,

@@ -842,15 +842,17 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
         </div>
       )}
 
-      {/* Authentic PRUF Catatan & ACC Approval Signature Footer */}
+      {/* Authentic PRUF Catatan & Signature Footer */}
       <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900 space-y-5">
         <div className="text-xs italic text-slate-700 dark:text-slate-300">
           <strong>Catatan :</strong> {doc.catatan || '-'}
         </div>
 
-        <div className="text-center text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200">
-          {doc.lokasiTanggal}
-        </div>
+        {doc.lokasiTanggal && (
+          <div className="text-center text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200">
+            {doc.lokasiTanggal}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-center text-xs sm:text-sm">
           {/* Ditetapkan, Manajer Operasional */}
@@ -862,44 +864,40 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
               </div>
             </div>
 
-            {isPublicPortal ? (
-              <div
-                className={`min-h-[40px] px-3.5 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 ${
-                  doc.accOperasional.approved
-                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                <Stamp className="w-3.5 h-3.5" />
-                <span>
-                  {doc.accOperasional.approved
-                    ? `ACC Online · ${formatWibDateTime(doc.accOperasional.approvedAt)}`
-                    : 'Menunggu ACC Online'}
-                </span>
-              </div>
+            {doc.accOperasional.approved ? (
+              isPublicPortal ? (
+                <div className="min-h-[40px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5">
+                  <Stamp className="w-3.5 h-3.5" />
+                  <span>
+                    {/\bACC\b/i.test(doc.accOperasional.approvedAt || '')
+                      ? doc.accOperasional.approvedAt
+                      : `ACC Online · ${formatWibDateTime(doc.accOperasional.approvedAt)}`}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canModify}
+                  onClick={() => onToggleApproval('operasional')}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-75 disabled:cursor-default"
+                >
+                  <Stamp className="w-3.5 h-3.5" />
+                  <span>
+                    {/\bACC\b/i.test(doc.accOperasional.approvedAt || '')
+                      ? doc.accOperasional.approvedAt
+                      : `ACC Online · ${formatWibDateTime(doc.accOperasional.approvedAt)}`}
+                  </span>
+                </button>
+              )
             ) : (
-              <button
-                type="button"
-                disabled={!canModify}
-                onClick={() => onToggleApproval('operasional')}
-                className={`min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                  doc.accOperasional.approved
-                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                    : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                } disabled:opacity-75 disabled:cursor-default`}
-              >
-                <Stamp className="w-3.5 h-3.5" />
-                <span>
-                  {doc.accOperasional.approved
-                    ? `ACC Online · ${formatWibDateTime(doc.accOperasional.approvedAt)}`
-                    : 'Klik untuk ACC Online'}
-                </span>
-              </button>
+              <div className="min-h-[40px]" aria-hidden="true" />
             )}
 
-            <div className="font-semibold text-slate-900 dark:text-white">
-              ( {doc.accOperasional.nama} )
-            </div>
+            {doc.accOperasional.nama && (
+              <div className="font-semibold text-slate-900 dark:text-white">
+                ( {doc.accOperasional.nama} )
+              </div>
+            )}
           </div>
 
           {/* Diketahui, Direktur */}
@@ -911,44 +909,40 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
               </div>
             </div>
 
-            {isPublicPortal ? (
-              <div
-                className={`min-h-[40px] px-3.5 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 ${
-                  doc.accDirektur.approved
-                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                <Stamp className="w-3.5 h-3.5" />
-                <span>
-                  {doc.accDirektur.approved
-                    ? `ACC Direktur · ${formatWibDateTime(doc.accDirektur.approvedAt)}`
-                    : 'Menunggu ACC Direktur'}
-                </span>
-              </div>
+            {doc.accDirektur.approved ? (
+              isPublicPortal ? (
+                <div className="min-h-[40px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5">
+                  <Stamp className="w-3.5 h-3.5" />
+                  <span>
+                    {/\bACC\b/i.test(doc.accDirektur.approvedAt || '')
+                      ? doc.accDirektur.approvedAt
+                      : `ACC Direktur · ${formatWibDateTime(doc.accDirektur.approvedAt)}`}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canModify}
+                  onClick={() => onToggleApproval('direktur')}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-75 disabled:cursor-default"
+                >
+                  <Stamp className="w-3.5 h-3.5" />
+                  <span>
+                    {/\bACC\b/i.test(doc.accDirektur.approvedAt || '')
+                      ? doc.accDirektur.approvedAt
+                      : `ACC Direktur · ${formatWibDateTime(doc.accDirektur.approvedAt)}`}
+                  </span>
+                </button>
+              )
             ) : (
-              <button
-                type="button"
-                disabled={!canModify}
-                onClick={() => onToggleApproval('direktur')}
-                className={`min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                  doc.accDirektur.approved
-                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                    : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                } disabled:opacity-75 disabled:cursor-default`}
-              >
-                <Stamp className="w-3.5 h-3.5" />
-                <span>
-                  {doc.accDirektur.approved
-                    ? `ACC Direktur · ${formatWibDateTime(doc.accDirektur.approvedAt)}`
-                    : 'Klik untuk ACC Direktur'}
-                </span>
-              </button>
+              <div className="min-h-[40px]" aria-hidden="true" />
             )}
 
-            <div className="font-semibold text-slate-900 dark:text-white">
-              ( {doc.accDirektur.nama} )
-            </div>
+            {doc.accDirektur.nama && (
+              <div className="font-semibold text-slate-900 dark:text-white">
+                ( {doc.accDirektur.nama} )
+              </div>
+            )}
           </div>
         </div>
 

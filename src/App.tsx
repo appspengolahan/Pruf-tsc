@@ -238,34 +238,41 @@ export default function App() {
   );
 
   const lastAutoSyncAtRef = useRef<number>(0);
+  const handleSyncNowRef = useRef(handleSyncNow);
+  handleSyncNowRef.current = handleSyncNow;
 
   useEffect(() => {
     if (initialSyncDoneRef.current) return;
     initialSyncDoneRef.current = true;
     if (gasConfig.autoSync && navigator.onLine) {
       lastAutoSyncAtRef.current = Date.now();
-      void handleSyncNow(true);
+      void handleSyncNowRef.current(true);
     }
-  }, [gasConfig.autoSync, handleSyncNow]);
+  }, [gasConfig.autoSync]);
 
-  // Silent re-sync when user returns to app tab / window so source changes appear automatically
+  // Silent re-sync on resume/focus (5s cooldown) and every 60s while tab is active
   useEffect(() => {
     if (!gasConfig.autoSync) return;
-    const maybeSyncOnResume = () => {
+    const maybeSyncNow = (cooldownMs: number) => {
       if (document.visibilityState === 'hidden') return;
       if (!navigator.onLine) return;
       const now = Date.now();
-      if (now - lastAutoSyncAtRef.current < 15_000) return;
+      if (now - lastAutoSyncAtRef.current < cooldownMs) return;
       lastAutoSyncAtRef.current = now;
-      void handleSyncNow(true);
+      void handleSyncNowRef.current(true);
     };
-    window.addEventListener('focus', maybeSyncOnResume);
-    document.addEventListener('visibilitychange', maybeSyncOnResume);
+    const onResume = () => maybeSyncNow(5_000);
+    window.addEventListener('focus', onResume);
+    window.addEventListener('online', onResume);
+    document.addEventListener('visibilitychange', onResume);
+    const intervalId = window.setInterval(() => maybeSyncNow(55_000), 60_000);
     return () => {
-      window.removeEventListener('focus', maybeSyncOnResume);
-      document.removeEventListener('visibilitychange', maybeSyncOnResume);
+      window.removeEventListener('focus', onResume);
+      window.removeEventListener('online', onResume);
+      document.removeEventListener('visibilitychange', onResume);
+      window.clearInterval(intervalId);
     };
-  }, [gasConfig.autoSync, handleSyncNow]);
+  }, [gasConfig.autoSync]);
 
   const updateActiveDoc = useCallback(
     async (updater: (prev: PrufDocument) => PrufDocument, toastText?: string) => {
