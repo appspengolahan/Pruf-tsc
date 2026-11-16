@@ -1,19 +1,33 @@
-import React, {useMemo, useState} from 'react';
-import {FileDown, Link2, X} from 'lucide-react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {FileDown, Link2, RotateCcw, X} from 'lucide-react';
 import {exportPrufPdf} from '../services/pdfExportService';
 import type {PrufDocument, RBACUser} from '../types/tsc';
-import {toGoogleDriveDownloadUrl} from '../utils/formatters';
+import {
+  toGoogleDriveDownloadUrl,
+  triggerDirectFileDownload,
+} from '../utils/formatters';
 
 interface PrufMetadataModalProps {
   doc: PrufDocument;
   activeUser: RBACUser;
+  focusLinkInput?: boolean;
+  onResetLinkToSheet?: () => void;
   onClose: () => void;
   onSave: (patch: Partial<PrufDocument>) => void;
+}
+
+function extractDriveFileId(url: string): string | null {
+  const m =
+    /[?&]id=([a-zA-Z0-9_-]+)/.exec(url) ||
+    /\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  return m?.[1] || null;
 }
 
 export const PrufMetadataModal: React.FC<PrufMetadataModalProps> = ({
   doc,
   activeUser,
+  focusLinkInput = false,
+  onResetLinkToSheet,
   onClose,
   onSave,
 }) => {
@@ -28,14 +42,29 @@ export const PrufMetadataModal: React.FC<PrufMetadataModalProps> = ({
   const [lokasiTanggal, setLokasiTanggal] = useState(doc.lokasiTanggal);
   const [rawDriveLink, setRawDriveLink] = useState(doc.prufDownloadUrl || '');
 
+  const linkInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (focusLinkInput && linkInputRef.current) {
+      linkInputRef.current.focus();
+      linkInputRef.current.select();
+    }
+  }, [focusLinkInput]);
+
   const convertedDownloadUrl = useMemo(
     () => toGoogleDriveDownloadUrl(rawDriveLink),
     [rawDriveLink]
   );
 
+  const driveFileId = useMemo(
+    () => extractDriveFileId(convertedDownloadUrl),
+    [convertedDownloadUrl]
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedKg = Number.parseFloat(targetKg.replace(',', '.'));
+    const linkChanged = convertedDownloadUrl !== (doc.prufDownloadUrl || '');
     onSave({
       namaTbkBlend: namaTbkBlend.trim() || doc.namaTbkBlend,
       noDokumen: noDokumen.trim(),
@@ -47,6 +76,11 @@ export const PrufMetadataModal: React.FC<PrufMetadataModalProps> = ({
       catatan: catatan.trim(),
       lokasiTanggal: lokasiTanggal.trim(),
       prufDownloadUrl: convertedDownloadUrl,
+      prufLinkSource: linkChanged
+        ? convertedDownloadUrl
+          ? 'webapp'
+          : 'sheet'
+        : doc.prufLinkSource,
       updatedAt: new Date().toISOString(),
     });
   };
@@ -75,12 +109,24 @@ export const PrufMetadataModal: React.FC<PrufMetadataModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Google Drive PDF Link Auto-Converter */}
-          <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/30 space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-300">
-              <Link2 className="w-4 h-4" />
-              <span>Link File PDF PRUF (Google Drive — Otomatis Konversi ke Direct Download)</span>
-            </label>
+          <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/30 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                <Link2 className="w-4 h-4" />
+                <span>Link File PDF PRUF (Google Drive — Direct Download)</span>
+              </label>
+              <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900 border border-emerald-300/60 dark:border-emerald-800 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                Sumber:{' '}
+                {doc.prufLinkSource === 'webapp'
+                  ? 'Diatur via Web App'
+                  : doc.prufDownloadUrl
+                  ? 'Otomatis dari Google Sheet'
+                  : 'Belum ada link'}
+              </span>
+            </div>
+
             <input
+              ref={linkInputRef}
               type="text"
               value={rawDriveLink}
               onChange={(e) => setRawDriveLink(e.target.value)}
@@ -90,11 +136,46 @@ export const PrufMetadataModal: React.FC<PrufMetadataModalProps> = ({
               placeholder="Tempel link Google Drive (/file/d/.../view, open?id=..., atau ID file)"
               className="w-full min-h-[44px] rounded-xl border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 px-3 font-mono text-xs text-slate-900 dark:text-white"
             />
+
             {convertedDownloadUrl && (
-              <div className="text-[11px] font-mono break-all text-emerald-800 dark:text-emerald-300">
-                Link Direct Download: {convertedDownloadUrl}
+              <div className="space-y-1 text-[11px] font-mono break-all text-emerald-800 dark:text-emerald-300">
+                <div>Link Direct Download: {convertedDownloadUrl}</div>
+                {driveFileId && (
+                  <div className="text-slate-600 dark:text-slate-400">
+                    ID File Drive: <strong>{driveFileId}</strong>
+                  </div>
+                )}
               </div>
             )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {convertedDownloadUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    triggerDirectFileDownload(
+                      convertedDownloadUrl,
+                      `PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+                    )
+                  }
+                  className="min-h-[40px] px-3 rounded-lg bg-slate-900 dark:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>Uji Download Link Ini</span>
+                </button>
+              )}
+
+              {onResetLinkToSheet && doc.prufLinkSource === 'webapp' && (
+                <button
+                  type="button"
+                  onClick={onResetLinkToSheet}
+                  className="min-h-[40px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-medium inline-flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Kembalikan ke Link Google Sheet</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

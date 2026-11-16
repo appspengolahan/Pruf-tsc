@@ -134,6 +134,7 @@ const HISTORY_SHEET_NAME = 'RIWAYAT_PRUF';
 const TIMEZONE_WIB = 'Asia/Jakarta';
 const PROP_SNAPSHOT_KEY = 'PRUF_COMPOSITION_SNAPSHOT_V1';
 const PROP_SHOW_HISTORY_PUBLIC = 'PRUF_SHOW_HISTORY_PUBLIC';
+const PROP_LINK_OVERRIDES_KEY = 'PRUF_LINK_OVERRIDES_V1';
 
 /**
  * Jalankan fungsi ini 1x dari editor Apps Script (Run > testStandaloneConnection)
@@ -179,6 +180,32 @@ function saveHistorySettings(settings) {
   props.setProperty('PRUF_HISTORY_SETTINGS_AT', (settings && settings.updatedAt) || new Date().toISOString());
   props.setProperty('PRUF_HISTORY_SETTINGS_BY', (settings && settings.updatedBy) || 'Admin');
   return getHistorySettings();
+}
+
+function getLinkOverrides() {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty(PROP_LINK_OVERRIDES_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLinkOverride(tab, url) {
+  if (ALLOWED_TABS.indexOf(tab) === -1) return getLinkOverrides();
+  const props = PropertiesService.getScriptProperties();
+  const current = getLinkOverrides();
+  const clean = String(url || '').trim();
+  if (clean) {
+    current[tab] = clean;
+  } else {
+    delete current[tab];
+  }
+  props.setProperty(PROP_LINK_OVERRIDES_KEY, JSON.stringify(current));
+  return current;
 }
 
 function ensureHistorySheet(ss) {
@@ -733,16 +760,37 @@ function syncSheetSnapshotAndHistory(ss, dataMap) {
 }
 
 function extractSheetLinks(range, displayValues) {
-  const found = [];
+  const otherLinks = [];
+  const footerPrufLinks = [];
   const seen = {};
+  let footerStartRow = Math.floor(displayValues.length * 0.65);
 
-  function pushUrl(url) {
+  for (let r = 0; r < displayValues.length; r++) {
+    const rowTxt = displayValues[r].join(' ').toUpperCase();
+    if (rowTxt.indexOf('GRAND TOTAL') !== -1 || rowTxt.indexOf('SILAHKAN DOWNLOAD') !== -1) {
+      footerStartRow = r;
+    }
+  }
+
+  function isIgnoredNavCell(cellText) {
+    const up = String(cellText || '').trim().toUpperCase();
+    return /^(HOME|DASHBOARD|LEMBAR PRUF)/i.test(up);
+  }
+
+  function pushUrl(url, r, cellText) {
     if (!url || typeof url !== 'string') return;
     const clean = url.trim();
     if (!clean || seen[clean]) return;
-    if (/^https?:\\/\\//i.test(clean)) {
-      seen[clean] = true;
-      found.push(clean);
+    if (!/^https?:\\/\\//i.test(clean)) return;
+    if (/#gid=/i.test(clean) || clean.indexOf(SPREADSHEET_ID) !== -1) return;
+    if (isIgnoredNavCell(cellText)) return;
+
+    seen[clean] = true;
+    const isFooterCell = r >= footerStartRow || /^PRUF\\b/i.test(String(cellText || '').trim());
+    if (isFooterCell) {
+      footerPrufLinks.push(clean);
+    } else {
+      otherLinks.push(clean);
     }
   }
 
@@ -752,10 +800,11 @@ function extractSheetLinks(range, displayValues) {
       for (let c = 0; c < richValues[r].length; c++) {
         const cell = richValues[r][c];
         if (!cell) continue;
-        pushUrl(cell.getLinkUrl());
+        const cellTxt = (displayValues[r] && displayValues[r][c]) ? displayValues[r][c] : '';
+        pushUrl(cell.getLinkUrl(), r, cellTxt);
         const runs = cell.getRuns();
         for (let k = 0; k < runs.length; k++) {
-          pushUrl(runs[k].getLinkUrl());
+          pushUrl(runs[k].getLinkUrl(), r, cellTxt);
         }
       }
     }
@@ -771,7 +820,8 @@ function extractSheetLinks(range, displayValues) {
         const f = formulas[r][c];
         if (!f) continue;
         const m = hyperRegex.exec(f);
-        if (m && m[1]) pushUrl(m[1]);
+        const cellTxt = (displayValues[r] && displayValues[r][c]) ? displayValues[r][c] : '';
+        if (m && m[1]) pushUrl(m[1], r, cellTxt);
       }
     }
   } catch (err) {
@@ -785,12 +835,12 @@ function extractSheetLinks(range, displayValues) {
       if (txt.indexOf('http') === -1) continue;
       let match;
       while ((match = urlRegex.exec(txt)) !== null) {
-        pushUrl(match[1]);
+        pushUrl(match[1], r, txt);
       }
     }
   }
 
-  return found;
+  return otherLinks.concat(footerPrufLinks);
 }
 
 function doGet(e) {
@@ -852,6 +902,7 @@ function doGet(e) {
 
     const history = readHistoryEntries(ss);
     const historySettings = getHistorySettings();
+    const linkOverrides = getLinkOverrides();
 
     return jsonResponse({
       ok: true,
@@ -860,6 +911,7 @@ function doGet(e) {
       serverTime: formatNowWib(),
       data: result,
       links: links,
+      linkOverrides: linkOverrides,
       history: history,
       historySettings: historySettings
     });
@@ -991,6 +1043,11 @@ function doPost(e) {
     if (body.action === 'set_history_settings') {
       const savedSettings = saveHistorySettings(body.settings || {});
       return jsonResponse({ ok: true, historySettings: savedSettings, serverTime: formatNowWib() });
+    }
+
+    if (body.action === 'set_pruf_link') {
+      const overrides = saveLinkOverride(body.tab, body.url || '');
+      return jsonResponse({ ok: true, linkOverrides: overrides, serverTime: formatNowWib() });
     }
 
     if (body.action === 'append_history') {

@@ -1014,14 +1014,23 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
                 : 'Silahkan download melalui Tombol Download Pruf yang tersedia'}
             </p>
           )}
-          {!doc.prufDownloadUrl && canModify && (
-            <button
-              type="button"
-              onClick={onEditMetadata}
-              className="text-xs underline text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px]"
-            >
-              + Atur Link Download PDF Google Drive ({doc.tab})
-            </button>
+          {canModify && (
+            <div className="pt-1 flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={onEditMetadata}
+                className="text-xs underline text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px] px-3"
+              >
+                {doc.prufDownloadUrl
+                  ? `Ubah / Perbarui Link Download PDF PRUF (${doc.tab})`
+                  : `+ Atur Link Download PDF Google Drive (${doc.tab})`}
+              </button>
+              {doc.prufDownloadUrl && (
+                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 max-w-full truncate px-4">
+                  Link aktif ({doc.prufLinkSource === 'webapp' ? 'Web App' : 'Sheet'}): {doc.prufDownloadUrl}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

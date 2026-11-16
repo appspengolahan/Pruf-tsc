@@ -25,6 +25,7 @@ const KEYS = {
   SYNC_LOGS: 'pruf_tsc_sync_logs_v1',
   HISTORY: 'pruf_tsc_history_v1',
   HISTORY_SETTINGS: 'pruf_tsc_history_settings_v1',
+  LINK_OVERRIDES: 'pruf_tsc_link_overrides_v1',
 } as const;
 
 interface MemoryEntry<T> {
@@ -209,4 +210,27 @@ export function saveHistoryPortalSettings(
   settings: HistoryPortalSettings
 ): void {
   writeCached(KEYS.HISTORY_SETTINGS, settings);
+}
+
+export function loadLinkOverrides(): Partial<Record<SheetTabKey, string>> {
+  return readCached<Partial<Record<SheetTabKey, string>>>(
+    KEYS.LINK_OVERRIDES,
+    () => ({})
+  );
+}
+
+export function saveLinkOverride(
+  tab: SheetTabKey,
+  url: string
+): Partial<Record<SheetTabKey, string>> {
+  const current = loadLinkOverrides();
+  const next = {...current};
+  const trimmed = url.trim();
+  if (trimmed) {
+    next[tab] = toGoogleDriveDownloadUrl(trimmed);
+  } else {
+    delete next[tab];
+  }
+  writeCached(KEYS.LINK_OVERRIDES, next);
+  return next;
 }

@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FileDown, FileSpreadsheet, Globe, History, Plus} from 'lucide-react';
+import {FileDown, FileSpreadsheet, Globe, History, Link2, Plus} from 'lucide-react';
 import {Footer} from './components/Footer';
 import {GASCenterModal} from './components/GASCenterModal';
 import {Header} from './components/Header';
@@ -18,6 +18,7 @@ import {
   pushHistorySettingsToGas,
   pushHistoryToGas,
   pushPrufDocToGas,
+  pushPrufLinkOverrideToGas,
   syncAllTabs,
 } from './services/gasSyncService';
 import {
@@ -41,6 +42,7 @@ import {
   saveCachedUsers,
   saveGasConfig,
   saveHistoryPortalSettings,
+  saveLinkOverride,
   saveSidebarCollapsed,
   saveSyncLogs,
   saveThemePreference,
@@ -128,6 +130,7 @@ export default function App() {
   const [editingRow, setEditingRow] = useState<PrufRow | null>(null);
   const [defaultRowGroup, setDefaultRowGroup] = useState<PrufGroupKey>('GROUP 1');
   const [showMetaModal, setShowMetaModal] = useState(false);
+  const [focusMetaLinkInput, setFocusMetaLinkInput] = useState(false);
   const [showGasModal, setShowGasModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showPublicModal, setShowPublicModal] = useState(false);
@@ -621,13 +624,45 @@ export default function App() {
 
   const handleSaveMetadata = (patch: Partial<PrufDocument>) => {
     setShowMetaModal(false);
+    setFocusMetaLinkInput(false);
+
+    const nextUrl = typeof patch.prufDownloadUrl === 'string' ? patch.prufDownloadUrl : activeDoc.prufDownloadUrl;
+    const linkModified =
+      typeof patch.prufDownloadUrl === 'string' &&
+      patch.prufDownloadUrl !== (activeDoc.prufDownloadUrl || '');
+
+    if (linkModified) {
+      saveLinkOverride(activeTab, nextUrl);
+      if (gasConfig.gasUrl.trim()) {
+        void pushPrufLinkOverrideToGas(gasConfig.gasUrl, activeTab, nextUrl).catch(() => {
+          // Kept in local override cache
+        });
+      }
+    }
+
     void updateActiveDoc(
       (doc) => ({
         ...doc,
         ...patch,
       }),
-      'Metadata dokumen PRUF diperbarui.'
+      linkModified
+        ? `Link Download PDF & Metadata PRUF ${activeTab} diperbarui.`
+        : 'Metadata dokumen PRUF diperbarui.'
     );
+  };
+
+  const handleResetLinkToSheet = () => {
+    saveLinkOverride(activeTab, '');
+    setShowMetaModal(false);
+    setFocusMetaLinkInput(false);
+    if (gasConfig.gasUrl.trim()) {
+      void pushPrufLinkOverrideToGas(gasConfig.gasUrl, activeTab, '')
+        .then(() => handleSyncNow(true))
+        .catch(() => {
+          // Ignore error; synced on next refresh
+        });
+    }
+    showToast('info', `Link ${activeTab} dikembalikan mengikuti Google Sheet.`);
   };
 
   const handleToggleApproval = (which: 'operasional' | 'direktur') => {
@@ -677,6 +712,7 @@ export default function App() {
       showToast('success', `Mengunduh dokumen PRUF ${activeTab} (PDF)...`);
       return;
     }
+    setFocusMetaLinkInput(true);
     setShowMetaModal(true);
     showToast(
       'info',
@@ -819,6 +855,21 @@ export default function App() {
                 <span>Download Pruf</span>
               </button>
 
+              {canModify && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFocusMetaLinkInput(true);
+                    setShowMetaModal(true);
+                  }}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                  title={`Edit / Perbarui Link Download PDF PRUF ${activeTab}`}
+                >
+                  <Link2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Edit Link</span>
+                </button>
+              )}
+
               {!isPublicPortal && (
                 <button
                   type="button"
@@ -929,7 +980,10 @@ export default function App() {
             }}
             onDeleteRow={handleDeleteRow}
             onEditMetadata={() => {
-              if (!isPublicPortal) setShowMetaModal(true);
+              if (!isPublicPortal) {
+                setFocusMetaLinkInput(true);
+                setShowMetaModal(true);
+              }
             }}
             onToggleApproval={handleToggleApproval}
           />
@@ -964,7 +1018,12 @@ export default function App() {
         <PrufMetadataModal
           doc={activeDoc}
           activeUser={activeUser}
-          onClose={() => setShowMetaModal(false)}
+          focusLinkInput={focusMetaLinkInput}
+          onResetLinkToSheet={handleResetLinkToSheet}
+          onClose={() => {
+            setShowMetaModal(false);
+            setFocusMetaLinkInput(false);
+          }}
           onSave={handleSaveMetadata}
         />
       )}

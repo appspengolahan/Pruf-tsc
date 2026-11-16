@@ -67,6 +67,7 @@ export interface PrufDocument {
   accOperasional: PrufApproval;
   accDirektur: PrufApproval;
   prufDownloadUrl: string;
+  prufLinkSource?: 'sheet' | 'webapp';
   instruksiDownload?: string;
   updatedAt: string;
   source: 'local' | 'gas' | 'csv';

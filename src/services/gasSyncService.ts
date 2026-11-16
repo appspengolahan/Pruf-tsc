@@ -18,6 +18,7 @@ import {
   roundPct,
   toGoogleDriveDownloadUrl,
 } from '../utils/formatters';
+import {loadLinkOverrides} from './storageCache';
 
 let staticHostingDetected = false;
 
@@ -680,6 +681,7 @@ export async function fetchFromGasEndpoint(
     error?: string;
     data?: Record<string, unknown[][]>;
     links?: Record<string, string[]>;
+    linkOverrides?: Partial<Record<SheetTabKey, string>>;
     history?: PrufChangeHistoryEntry[];
     historySettings?: HistoryPortalSettings;
   };
@@ -690,6 +692,9 @@ export async function fetchFromGasEndpoint(
   const docs: Partial<Record<SheetTabKey, PrufDocument>> = {};
   const dataMap = parsed.data || {};
   const linksMap = parsed.links || {};
+  const remoteOverrides = parsed.linkOverrides || {};
+  const localOverrides = loadLinkOverrides();
+
   for (const meta of SHEET_TABS) {
     const matrix = dataMap[meta.key];
     if (Array.isArray(matrix) && matrix.length > 0) {
@@ -699,16 +704,39 @@ export async function fetchFromGasEndpoint(
         baselines[meta.key],
         'gas'
       );
-      const tabLinks = linksMap[meta.key];
-      if (Array.isArray(tabLinks) && tabLinks.length > 0) {
-        const driveLink =
-          tabLinks.find((u) => /drive(?:\.usercontent)?\.google\.com/i.test(u)) ||
-          tabLinks.find((u) => /docs\.google\.com/i.test(u) && !/#gid=/i.test(u)) ||
-          tabLinks[tabLinks.length - 1];
-        if (driveLink) {
-          parsedDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(driveLink);
+
+      const overrideUrl =
+        (remoteOverrides[meta.key] || '').trim() ||
+        (localOverrides[meta.key] || '').trim();
+
+      if (overrideUrl) {
+        parsedDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(overrideUrl);
+        parsedDoc.prufLinkSource = 'webapp';
+      } else {
+        const tabLinks = linksMap[meta.key];
+        if (Array.isArray(tabLinks) && tabLinks.length > 0) {
+          // Pick the LAST Drive link (located at the bottom footer "PRUF <TAB>"),
+          // never the top navigation or earlier row links.
+          const driveLinks = tabLinks.filter((u) =>
+            /drive(?:\.usercontent)?\.google\.com/i.test(u)
+          );
+          const docsLinks = tabLinks.filter(
+            (u) =>
+              /docs\.google\.com/i.test(u) &&
+              !/#gid=/i.test(u) &&
+              !/\/spreadsheets\//i.test(u)
+          );
+          const pickedLink =
+            driveLinks[driveLinks.length - 1] ||
+            docsLinks[docsLinks.length - 1] ||
+            tabLinks[tabLinks.length - 1];
+          if (pickedLink) {
+            parsedDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(pickedLink);
+            parsedDoc.prufLinkSource = 'sheet';
+          }
         }
       }
+
       docs[meta.key] = parsedDoc;
     }
   }
@@ -883,6 +911,35 @@ export async function pushHistorySettingsToGas(
     throw new Error('GAS POST pengaturan riwayat mengembalikan HTML.');
   }
   return JSON.parse(rawText) as {ok?: boolean; error?: string};
+}
+
+export async function pushPrufLinkOverrideToGas(
+  gasUrl: string,
+  tab: SheetTabKey,
+  url: string
+): Promise<unknown> {
+  const cleanUrl = gasUrl.trim();
+  if (!cleanUrl) {
+    return {ok: true, localOnly: true};
+  }
+  const res = await fetch(cleanUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({
+      action: 'set_pruf_link',
+      tab,
+      url: url.trim() ? toGoogleDriveDownloadUrl(url) : '',
+    }),
+  });
+  const rawText = await res.text();
+  if (rawText.trim().startsWith('<')) {
+    throw new Error('GAS POST link PRUF mengembalikan HTML.');
+  }
+  const parsed = JSON.parse(rawText) as {ok?: boolean; error?: string};
+  if (parsed.ok === false) {
+    throw new Error(parsed.error || 'Gagal menyimpan link PDF PRUF ke GAS.');
+  }
+  return parsed;
 }
 
 /**
