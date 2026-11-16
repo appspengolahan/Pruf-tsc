@@ -782,19 +782,19 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-6 space-y-5">
           {/* Top Page Context & Actions */}
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div className="flex flex-col gap-3">
             <div className="min-w-0">
-              <h2 className="font-display text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="font-display text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight break-words">
                 {activeDoc.namaTbkBlend
                   ? `NAMA TBK. BLEND : ${activeDoc.namaTbkBlend}`
                   : activeTabMeta.blendTitle}
               </h2>
-              <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400 break-words">
                 {activeDoc.judulUtama || activeTabMeta.description}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               {canModify && (
                 <button
                   type="button"
