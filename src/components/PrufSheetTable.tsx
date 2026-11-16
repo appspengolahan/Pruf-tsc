@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Circle,
   Edit3,
+  FileDown,
   FilePenLine,
   Plus,
   Search,
@@ -35,6 +36,7 @@ interface PrufSheetTableProps {
   onEditRow: (row: PrufRow) => void;
   onDeleteRow: (rowId: string) => void;
   onEditMetadata: () => void;
+  onDownloadPruf: () => void;
   onToggleApproval: (which: 'operasional' | 'direktur') => void;
 }
 
@@ -54,6 +56,7 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
   onEditRow,
   onDeleteRow,
   onEditMetadata,
+  onDownloadPruf,
   onToggleApproval,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -1001,37 +1004,58 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
           </div>
         </div>
 
-        <div className="text-center space-y-1.5">
-          <p className="text-xs font-bold italic text-red-600 dark:text-red-400">
-            Pruf berlaku hanya yang telah ditandatangani.
-          </p>
-          {(doc.instruksiDownload !== undefined
-            ? doc.instruksiDownload
-            : 'Silahkan download melalui Tombol Download Pruf yang tersedia') && (
-            <p className="text-[11px] italic text-red-600 dark:text-red-400">
-              {doc.instruksiDownload !== undefined
-                ? doc.instruksiDownload
-                : 'Silahkan download melalui Tombol Download Pruf yang tersedia'}
+        <div className="text-center space-y-2">
+          <div className="space-y-1">
+            <p className="text-xs font-bold italic text-red-600 dark:text-red-400">
+              Pruf berlaku hanya yang telah ditandatangani.
             </p>
-          )}
-          {canModify && (
-            <div className="pt-1 flex flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={onEditMetadata}
-                className="text-xs underline text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px] px-3"
-              >
-                {doc.prufDownloadUrl
-                  ? `Ubah / Perbarui Link Download PDF PRUF (${doc.tab})`
-                  : `+ Atur Link Download PDF Google Drive (${doc.tab})`}
-              </button>
-              {doc.prufDownloadUrl && (
-                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 max-w-full truncate px-4">
-                  Link aktif ({doc.prufLinkSource === 'webapp' ? 'Web App' : 'Sheet'}): {doc.prufDownloadUrl}
-                </span>
-              )}
-            </div>
-          )}
+            {(doc.instruksiDownload !== undefined
+              ? doc.instruksiDownload
+              : 'Silahkan download melalui Tombol Download Pruf yang tersedia') && (
+              <p className="text-[11px] italic text-red-600 dark:text-red-400">
+                {doc.instruksiDownload !== undefined
+                  ? doc.instruksiDownload
+                  : 'Silahkan download melalui Tombol Download Pruf yang tersedia'}
+              </p>
+            )}
+          </div>
+
+          <div className="pt-1.5 flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onDownloadPruf}
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shadow-sm"
+              title={
+                doc.prufDownloadUrl
+                  ? `Download langsung file PDF PRUF ${doc.tab}`
+                  : isPublicPortal
+                  ? `Download dokumen PDF PRUF ${doc.tab}`
+                  : 'Atur & Download Link PDF PRUF Google Drive'
+              }
+            >
+              <FileDown className="w-4 h-4 text-emerald-400 dark:text-white" />
+              <span>Download Pruf</span>
+            </button>
+
+            {canModify && (
+              <div className="flex flex-col items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={onEditMetadata}
+                  className="text-xs underline text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px] px-3"
+                >
+                  {doc.prufDownloadUrl
+                    ? `Ubah / Perbarui Link Download PDF PRUF (${doc.tab})`
+                    : `+ Atur Link Download PDF Google Drive (${doc.tab})`}
+                </button>
+                {doc.prufDownloadUrl && (
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 max-w-full truncate px-4">
+                    Link aktif ({doc.prufLinkSource === 'webapp' ? 'Web App' : 'Sheet'}): {doc.prufDownloadUrl}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>

@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FileDown, FileSpreadsheet, Globe, History, Link2, Plus} from 'lucide-react';
+import {FileSpreadsheet, Globe, History, Link2, Plus} from 'lucide-react';
 import {Footer} from './components/Footer';
 import {GASCenterModal} from './components/GASCenterModal';
 import {Header} from './components/Header';
@@ -794,94 +794,80 @@ export default function App() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {canModify && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingRow(null);
-                    setDefaultRowGroup('GROUP 1');
-                    setShowRowModal(true);
-                  }}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tambah Bahan</span>
-                </button>
-              )}
+            {(!isPublicPortal || historySettings.showHistoryInPublicPortal) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {canModify && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingRow(null);
+                      setDefaultRowGroup('GROUP 1');
+                      setShowRowModal(true);
+                    }}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Bahan</span>
+                  </button>
+                )}
 
-              {(!isPublicPortal || historySettings.showHistoryInPublicPortal) && (
-                <button
-                  type="button"
-                  onClick={() => setShowHistoryModal(true)}
-                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                  title="Lihat Riwayat Perubahan Komposisi & Catatan PRUF per Merk"
-                >
-                  <History className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>Riwayat Perubahan</span>
-                  {historyEntries.length > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-md bg-amber-600 text-white font-mono text-[11px] tabular-nums">
-                      {historyEntries.length}
-                    </span>
-                  )}
-                </button>
-              )}
+                {(!isPublicPortal || historySettings.showHistoryInPublicPortal) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowHistoryModal(true)}
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                    title="Lihat Riwayat Perubahan Komposisi & Catatan PRUF per Merk"
+                  >
+                    <History className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>Riwayat Perubahan</span>
+                    {historyEntries.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-amber-600 text-white font-mono text-[11px] tabular-nums">
+                        {historyEntries.length}
+                      </span>
+                    )}
+                  </button>
+                )}
 
-              {!isPublicPortal && (
-                <button
-                  type="button"
-                  onClick={() => setShowPublicModal(true)}
-                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                  title="Salin Link Portal Publik (Read-Only)"
-                >
-                  <Globe className="w-4 h-4" />
-                  <span>Portal Publik</span>
-                </button>
-              )}
+                {!isPublicPortal && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPublicModal(true)}
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                    title="Salin Link Portal Publik (Read-Only)"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Portal Publik</span>
+                  </button>
+                )}
 
-              <button
-                type="button"
-                onClick={handleDownloadPruf}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                title={
-                  activeDoc.prufDownloadUrl
-                    ? `Download langsung file PDF PRUF ${activeTab}`
-                    : isPublicPortal
-                    ? `Download dokumen PDF PRUF ${activeTab}`
-                    : 'Atur & Download Link PDF PRUF Google Drive'
-                }
-              >
-                <FileDown className="w-4 h-4 text-emerald-400" />
-                <span>Download Pruf</span>
-              </button>
+                {canModify && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFocusMetaLinkInput(true);
+                      setShowMetaModal(true);
+                    }}
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                    title={`Edit / Perbarui Link Download PDF PRUF ${activeTab}`}
+                  >
+                    <Link2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Edit Link</span>
+                  </button>
+                )}
 
-              {canModify && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFocusMetaLinkInput(true);
-                    setShowMetaModal(true);
-                  }}
-                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                  title={`Edit / Perbarui Link Download PDF PRUF ${activeTab}`}
-                >
-                  <Link2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Edit Link</span>
-                </button>
-              )}
-
-              {!isPublicPortal && (
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                  title="Download CSV dengan pemisah titik koma (;) lokal Indonesia"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <span>CSV (;)</span>
-                </button>
-              )}
-            </div>
+                {!isPublicPortal && (
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                    title="Download CSV dengan pemisah titik koma (;) lokal Indonesia"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                    <span>CSV (;)</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile Quick Tab Switcher Strip */}
@@ -985,6 +971,7 @@ export default function App() {
                 setShowMetaModal(true);
               }
             }}
+            onDownloadPruf={handleDownloadPruf}
             onToggleApproval={handleToggleApproval}
           />
 
