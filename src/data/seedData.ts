@@ -377,55 +377,275 @@ export function createSeedPrufDocuments(): Record<SheetTabKey, PrufDocument> {
   };
 }
 
-export const GAS_TEMPLATE_SCRIPT = `// Google Apps Script (Code.gs) — PRUF - KOMPOSISI TSC
-// Spreadsheet ID: ${DEFAULT_SPREADSHEET_ID}
-// Catatan Lokal Indonesia: Semua formula spreadsheet menggunakan pemisah titik koma (;)
+export const GAS_TEMPLATE_SCRIPT = `// ============================================================================
+// Google Apps Script (Code.gs) — STANDALONE BACKEND
+// Aplikasi : PRUF - KOMPOSISI TSC (PT Batu Karang - Divisi Produksi I)
+// Sheet ID : ${DEFAULT_SPREADSHEET_ID}
+// Tab      : 153 BK | TIS KBT24 | KARANG BK | F REGULER (LN, AVE)
+// Aturan   : Formula Indonesia menggunakan titik koma (;) | Zona Waktu WIB
+// ============================================================================
 
 const SPREADSHEET_ID = '${DEFAULT_SPREADSHEET_ID}';
 const ALLOWED_TABS = ['153 BK', 'TIS KBT24', 'KARANG BK', 'F REGULER (LN, AVE)'];
+const LOG_SHEET_NAME = 'LOG_SYNC_PRUF';
+const TIMEZONE_WIB = 'Asia/Jakarta';
+
+/**
+ * Jalankan fungsi ini 1x dari editor Apps Script (Run > testStandaloneConnection)
+ * untuk memberikan izin akses Spreadsheet sebelum melakukan Deploy Web App.
+ */
+function testStandaloneConnection() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const summary = ALLOWED_TABS.map(function (name) {
+    const sh = ss.getSheetByName(name);
+    return sh
+      ? name + ': OK (' + sh.getLastRow() + ' baris x ' + sh.getLastColumn() + ' kolom)'
+      : name + ': TAB TIDAK DITEMUKAN';
+  });
+  Logger.log('Spreadsheet: ' + ss.getName());
+  Logger.log(summary.join(' | '));
+  return summary;
+}
+
+function jsonResponse(payload) {
+  return ContentService
+    .createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function formatNowWib() {
+  return Utilities.formatDate(new Date(), TIMEZONE_WIB, 'dd/MM/yyyy HH:mm:ss') + ' WIB';
+}
+
+function extractSheetLinks(range, displayValues) {
+  const found = [];
+  const seen = {};
+
+  function pushUrl(url) {
+    if (!url || typeof url !== 'string') return;
+    const clean = url.trim();
+    if (!clean || seen[clean]) return;
+    if (/^https?:\\/\\//i.test(clean)) {
+      seen[clean] = true;
+      found.push(clean);
+    }
+  }
+
+  try {
+    const richValues = range.getRichTextValues();
+    for (let r = 0; r < richValues.length; r++) {
+      for (let c = 0; c < richValues[r].length; c++) {
+        const cell = richValues[r][c];
+        if (!cell) continue;
+        pushUrl(cell.getLinkUrl());
+        const runs = cell.getRuns();
+        for (let k = 0; k < runs.length; k++) {
+          pushUrl(runs[k].getLinkUrl());
+        }
+      }
+    }
+  } catch (err) {
+    // Abaikan jika ada sel non-richtext
+  }
+
+  try {
+    const formulas = range.getFormulas();
+    const hyperRegex = /=HYPERLINK\\s*\\(\\s*"([^"]+)"/i;
+    for (let r = 0; r < formulas.length; r++) {
+      for (let c = 0; c < formulas[r].length; c++) {
+        const f = formulas[r][c];
+        if (!f) continue;
+        const m = hyperRegex.exec(f);
+        if (m && m[1]) pushUrl(m[1]);
+      }
+    }
+  } catch (err) {
+    // Abaikan jika gagal baca formula
+  }
+
+  const urlRegex = /(https?:\\/\\/[^\\s"']+)/gi;
+  for (let r = 0; r < displayValues.length; r++) {
+    for (let c = 0; c < displayValues[r].length; c++) {
+      const txt = String(displayValues[r][c] || '');
+      if (txt.indexOf('http') === -1) continue;
+      let match;
+      while ((match = urlRegex.exec(txt)) !== null) {
+        pushUrl(match[1]);
+      }
+    }
+  }
+
+  return found;
+}
 
 function doGet(e) {
   try {
-    const tab = (e && e.parameter && e.parameter.tab) ? e.parameter.tab : '';
+    const params = (e && e.parameter) ? e.parameter : {};
+    if (params.action === 'health') {
+      return jsonResponse({
+        ok: true,
+        mode: 'standalone',
+        spreadsheetId: SPREADSHEET_ID,
+        tabs: ALLOWED_TABS,
+        serverTime: formatNowWib()
+      });
+    }
+
+    const tab = params.tab ? String(params.tab) : '';
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const tabsToRead = tab && ALLOWED_TABS.indexOf(tab) !== -1 ? [tab] : ALLOWED_TABS;
+    const tabsToRead = (tab && ALLOWED_TABS.indexOf(tab) !== -1) ? [tab] : ALLOWED_TABS;
+
     const result = {};
     const links = {};
 
     tabsToRead.forEach(function (sheetName) {
       const sheet = ss.getSheetByName(sheetName);
-      if (!sheet) {
+      if (!sheet || sheet.getLastRow() === 0 || sheet.getLastColumn() === 0) {
         result[sheetName] = [];
         links[sheetName] = [];
         return;
       }
+
       const range = sheet.getDataRange();
-      const values = range.getValues();
-      const richValues = range.getRichTextValues();
-      const foundLinks = [];
-      richValues.forEach(function (row) {
-        row.forEach(function (cell) {
-          const url = cell ? cell.getLinkUrl() : null;
-          if (url) foundLinks.push(url);
-        });
-      });
-      result[sheetName] = values;
-      links[sheetName] = foundLinks;
+      // Gunakan getDisplayValues() agar format persen (32,00%), desimal (600,0),
+      // dan tanggal Indonesia terbaca persis seperti tampilan Google Sheets.
+      const displayValues = range.getDisplayValues();
+      result[sheetName] = displayValues;
+      links[sheetName] = extractSheetLinks(range, displayValues);
     });
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true, spreadsheetId: SPREADSHEET_ID, data: result, links: links }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({
+      ok: true,
+      mode: 'standalone',
+      spreadsheetId: SPREADSHEET_ID,
+      serverTime: formatNowWib(),
+      data: result,
+      links: links
+    });
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({
+      ok: false,
+      error: String(err)
+    });
   }
 }
 
+function normalizeLabel(str) {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/\\(\\d{4}\\)/g, '')
+    .replace(/\\s+/g, ' ')
+    .trim();
+}
+
+function syncMasterSheetInPlace(sheet, doc) {
+  if (!sheet || sheet.getLastRow() < 3) return 0;
+  const range = sheet.getDataRange();
+  const displayValues = range.getDisplayValues();
+  const formulas = range.getFormulas();
+
+  let colACount = 0;
+  let colBCount = 0;
+  for (let r = 0; r < Math.min(displayValues.length, 20); r++) {
+    if (String(displayValues[r][0] || '').trim()) colACount++;
+    if (String(displayValues[r][1] || '').trim()) colBCount++;
+  }
+  const hasBlankColA = colACount === 0 && colBCount > 0;
+  const labelColIdx = hasBlankColA ? 1 : 0;
+  const pctColIdx = hasBlankColA ? 5 : 4;
+  const ketColIdx = hasBlankColA ? 12 : 7;
+
+  const incomingMap = {};
+  (doc.rows || []).forEach(function (item) {
+    if (!item || !item.rincian) return;
+    incomingMap[normalizeLabel(item.rincian)] = item;
+  });
+
+  let updatedCells = 0;
+  for (let r = 0; r < displayValues.length; r++) {
+    const label = String(displayValues[r][labelColIdx] || '').trim();
+    if (!label) continue;
+
+    const match = incomingMap[normalizeLabel(label)];
+    if (!match) continue;
+
+    // Hanya update sel % dan Keterangan jika sel bukan formula, agar rumus sheet aman
+    if (pctColIdx < displayValues[r].length && !formulas[r][pctColIdx]) {
+      const targetPctDecimal = Number(match.pct || 0) / 100;
+      const curRaw = String(displayValues[r][pctColIdx] || '');
+      const isPercentFormatted = curRaw.indexOf('%') !== -1;
+      sheet.getRange(r + 1, pctColIdx + 1).setValue(
+        isPercentFormatted ? targetPctDecimal : Number(match.pct || 0)
+      );
+      updatedCells++;
+    }
+
+    if (
+      typeof match.keterangan === 'string' &&
+      ketColIdx < displayValues[r].length &&
+      !formulas[r][ketColIdx]
+    ) {
+      sheet.getRange(r + 1, ketColIdx + 1).setValue(match.keterangan);
+    }
+  }
+
+  return updatedCells;
+}
+
+function appendSyncLog(ss, tab, doc, updatedCells) {
+  let logSheet = ss.getSheetByName(LOG_SHEET_NAME);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(LOG_SHEET_NAME);
+    logSheet.appendRow([
+      'Waktu Sync (WIB)',
+      'Tab PRUF',
+      'No Dokumen',
+      'Target Kapasitas (Kg)',
+      'Jumlah Bahan Aktif',
+      'Total Persen (%)',
+      'Kalkulasi Grand Total (Kg)',
+      'Sel Master Diperbarui',
+      'Catatan'
+    ]);
+    logSheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+  }
+
+  const activeRows = (doc.rows || []).filter(function (r) {
+    return r && Number(r.pct) > 0;
+  });
+  let totalPct = 0;
+  activeRows.forEach(function (r) {
+    totalPct += Number(r.pct || 0);
+  });
+
+  const nextRow = logSheet.getLastRow() + 1;
+  // Formula Indonesia wajib menggunakan pemisah titik koma (;)
+  const grandKgFormula = '=ROUND((F' + nextRow + '/100)*D' + nextRow + '; 1)';
+
+  logSheet.appendRow([
+    formatNowWib(),
+    tab,
+    doc.noDokumen || '-',
+    Number(doc.targetKg || 0),
+    activeRows.length,
+    Number(totalPct.toFixed(2)),
+    grandKgFormula,
+    updatedCells,
+    doc.catatan || 'Sinkronisasi dari Web App PRUF - KOMPOSISI TSC'
+  ]);
+}
+
 function doPost(e) {
+  const lock = LockService.getScriptLock();
   try {
-    const body = JSON.parse(e.postData.contents || '{}');
+    lock.waitLock(15000);
+    const raw = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
+    const body = JSON.parse(raw);
+
+    if (body.action === 'ping') {
+      return jsonResponse({ ok: true, pong: true, serverTime: formatNowWib() });
+    }
+
     const tab = body.tab;
     const doc = body.document;
     if (ALLOWED_TABS.indexOf(tab) === -1 || !doc) {
@@ -433,50 +653,32 @@ function doPost(e) {
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    let sheet = ss.getSheetByName(tab);
+    const sheet = ss.getSheetByName(tab);
     if (!sheet) {
-      sheet = ss.insertSheet(tab);
+      throw new Error('Tab "' + tab + '" tidak ditemukan di Spreadsheet.');
     }
 
-    sheet.clearContents();
-    sheet.appendRow(['KETETAPAN PRUF TEMBAKAU BLEND JENIS SKT ( LOW FLAVOUR )']);
-    sheet.appendRow(['NAMA TBK. BLEND', doc.namaTbkBlend, '', 'No : ' + (doc.noDokumen || '')]);
-    sheet.appendRow(['1. Pelaksanaan Pruf', doc.pelaksanaanPruf, '', '3. Tgl Blend', doc.tglBlend]);
-    sheet.appendRow(['2. Periode Pruf', doc.periodePruf, '', '4. Peruntukan Merk', doc.peruntukanMerk]);
-    // Kolom A..I — Kolom G (indeks 7 / kolom ke-7) adalah Kapasitas (Kg)
-    sheet.appendRow(['Group', 'Nama Stock Bahan (Rincian)', 'Grade/Tahun', 'Kode Intern', '%', 'Kapasitas (Gr)', 'Kapasitas (Kg)', 'Keterangan', 'Verifikasi']);
+    // Pembaruan aman (in-place) tanpa clearContents() agar layout cetak & rumus master terjaga
+    const updatedCells = syncMasterSheetInPlace(sheet, doc);
+    appendSyncLog(ss, tab, doc, updatedCells);
 
-    const baseGr = Number(doc.baseGr || 1000);
-    const targetKg = Number(doc.targetKg || 600);
-    sheet.appendRow(['PARAM', 'Basis Kapasitas', '', '', 100, baseGr, targetKg, '', '']);
-
-    const startRow = 7;
-    (doc.rows || []).forEach(function (item, idx) {
-      if (!item || Number(item.pct) <= 0) return;
-      const r = startRow + idx;
-      // Formula Indonesia wajib menggunakan titik koma (;) — Kolom G adalah Kapasitas (Kg)
-      const grFormula = '=ROUND((E' + r + '/100)*$F$6; 1)';
-      const kgFormula = '=ROUND((E' + r + '/100)*$G$6; 1)';
-      sheet.appendRow([
-        item.group,
-        item.rincian,
-        '',
-        item.kodeIntern || '',
-        Number(item.pct),
-        grFormula,
-        kgFormula,
-        item.keterangan || '',
-        item.verified ? 'TERVERIFIKASI' : 'MENUNGGU'
-      ]);
+    return jsonResponse({
+      ok: true,
+      mode: 'standalone',
+      tab: tab,
+      updatedCells: updatedCells,
+      loggedTo: LOG_SHEET_NAME,
+      serverTime: formatNowWib()
     });
-
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true, tab: tab, totalRows: (doc.rows || []).length }))
-      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({
+      ok: false,
+      error: String(err)
+    });
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (ignore) {}
   }
 }
 `;
