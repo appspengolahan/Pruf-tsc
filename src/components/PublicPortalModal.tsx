@@ -83,7 +83,7 @@ export const PublicPortalModal: React.FC<PublicPortalModalProps> = ({
           <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-950/30 p-3.5 text-xs text-emerald-900 dark:text-emerald-200">
             <Lock className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
             <div>
-              Pengunjung yang membuka link di bawah ini hanya dapat melihat komposisi PRUF, memfilter pencarian, mengganti tab blend, dan mengunduh file PDF/CSV resmi tanpa bisa mengubah data apa pun.
+              Pengunjung yang membuka link di bawah ini hanya dapat melihat komposisi PRUF, memfilter pencarian, mengganti tab blend, dan mengunduh file PDF resmi tanpa bisa mengubah data apa pun.
             </div>
           </div>
 

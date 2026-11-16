@@ -480,6 +480,7 @@ export default function App() {
   };
 
   const handleExportCsv = () => {
+    if (isPublicPortal) return;
     downloadIndonesianCsv(activeDoc);
     showToast('success', `CSV PRUF ${activeTab} (separasi ;) diunduh.`);
   };
@@ -596,15 +597,17 @@ export default function App() {
                 <span>Download Pruf</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-                title="Download CSV dengan pemisah titik koma (;) lokal Indonesia"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>CSV (;)</span>
-              </button>
+              {!isPublicPortal && (
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                  title="Download CSV dengan pemisah titik koma (;) lokal Indonesia"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                  <span>CSV (;)</span>
+                </button>
+              )}
             </div>
           </div>
 
