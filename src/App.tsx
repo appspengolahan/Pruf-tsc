@@ -44,6 +44,8 @@ import type {
   SyncLogEntry,
 } from './types/tsc';
 import {
+  calcRowGr,
+  calcRowKg,
   computePrufTotals,
   formatInt,
   formatKg,
@@ -154,11 +156,18 @@ export default function App() {
   const activeTotals = useMemo(() => computePrufTotals(activeDoc), [activeDoc]);
 
   const tabCounts = useMemo(() => {
+    const countActive = (doc?: PrufDocument) =>
+      (doc?.rows || []).filter(
+        (r) =>
+          r.pct > 0 &&
+          calcRowGr(r.pct, doc?.baseGr || 1000) > 0 &&
+          calcRowKg(r.pct, doc?.targetKg || 600) > 0
+      ).length;
     return {
-      '153 BK': docsByTab['153 BK']?.rows.length || 0,
-      'TIS KBT24': docsByTab['TIS KBT24']?.rows.length || 0,
-      'KARANG BK': docsByTab['KARANG BK']?.rows.length || 0,
-      'F REGULER (LN, AVE)': docsByTab['F REGULER (LN, AVE)']?.rows.length || 0,
+      '153 BK': countActive(docsByTab['153 BK']),
+      'TIS KBT24': countActive(docsByTab['TIS KBT24']),
+      'KARANG BK': countActive(docsByTab['KARANG BK']),
+      'F REGULER (LN, AVE)': countActive(docsByTab['F REGULER (LN, AVE)']),
     };
   }, [docsByTab]);
 

@@ -250,6 +250,25 @@ function doGet(e) {
       // Gunakan getDisplayValues() agar format persen (32,00%), desimal (600,0),
       // dan tanggal Indonesia terbaca persis seperti tampilan Google Sheets.
       const displayValues = range.getDisplayValues();
+      const fontColors = range.getFontColors();
+      const bgColors = range.getBackgrounds();
+
+      // Abaikan teks yang sengaja disembunyikan dengan warna font = warna latar (mis. putih di atas putih)
+      for (let r = 0; r < displayValues.length; r++) {
+        for (let c = 0; c < displayValues[r].length; c++) {
+          const fc = String(fontColors[r][c] || '').toLowerCase();
+          const bg = String(bgColors[r][c] || '').toLowerCase();
+          if (
+            fc &&
+            bg &&
+            fc === bg &&
+            String(displayValues[r][c] || '').indexOf('http') === -1
+          ) {
+            displayValues[r][c] = '';
+          }
+        }
+      }
+
       result[sheetName] = displayValues;
       links[sheetName] = extractSheetLinks(range, displayValues);
     });

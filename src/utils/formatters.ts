@@ -153,8 +153,10 @@ export function computePrufTotals(doc: PrufDocument): PrufTotalsSummary {
   let verifiedCount = 0;
 
   for (const row of doc.rows) {
-    const target = groupTotals[row.group];
+    if (row.pct <= 0) continue;
     const gr = calcRowGr(row.pct, doc.baseGr);
+    if (gr <= 0) continue;
+    const target = groupTotals[row.group];
     const kg = calcRowKg(row.pct, doc.targetKg);
     target.pct = roundPct(target.pct + row.pct);
     target.gr = roundOneDec(target.gr + gr);

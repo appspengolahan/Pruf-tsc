@@ -76,8 +76,14 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return doc.rows.filter((r) => {
-      // Jangan tampilkan bahan yang nilainya kosong / 0 pada kolom Kapasitas (Kg)
-      if (r.pct <= 0 || calcRowKg(r.pct, doc.targetKg) <= 0) return false;
+      // Jangan tampilkan bahan yang nilainya kosong / 0 pada Kolom G (Gr) maupun Kapasitas (Kg)
+      if (
+        r.pct <= 0 ||
+        calcRowGr(r.pct, doc.baseGr) <= 0 ||
+        calcRowKg(r.pct, doc.targetKg) <= 0
+      ) {
+        return false;
+      }
       if (verifyFilter === 'verified' && !r.verified) return false;
       if (verifyFilter === 'pending' && r.verified) return false;
       if (!q) return true;

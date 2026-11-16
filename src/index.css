@@ -3,8 +3,8 @@
 
 @theme {
   --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Open Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "Open Sans", system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
@@ -42,8 +42,8 @@
 
 .tabular-nums,
 .font-mono {
-  font-variant-numeric: tabular-nums slashed-zero;
-  font-feature-settings: "tnum" 1, "zero" 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 0;
 }
 
 .font-display {
