@@ -185,6 +185,7 @@ export function parseMatrixToPrufDoc(
       source === 'csv' && baseline.prufDownloadUrl
         ? toGoogleDriveDownloadUrl(baseline.prufDownloadUrl)
         : '',
+    instruksiDownload: '',
     rows: [],
     updatedAt: new Date().toISOString(),
     source,
@@ -346,11 +347,13 @@ export function parseMatrixToPrufDoc(
 
     // Extract Footer Metadata: Tanggal Lokasi, Jabatan, Nama Penandatangan, and optional ACC stamps
     if (passedGrandTotal || /^(DITETAPKAN|DIKETAHUI|MALANG,|ACC\s|MANAJER|DIREKTUR|\()/i.test(firstUp)) {
-      // Lokasi & Tanggal e.g. "Malang, 12 November 2026"
+      // Lokasi & Tanggal e.g. "Malang, 12 November 2026" & optional download instruction line
       for (const c of cells) {
         if (!c) continue;
         if (/^(malang|[a-z]+)\s*,\s*\d{1,2}\s+[a-z]+\s+\d{4}$/i.test(c)) {
           nextDoc.lokasiTanggal = c;
+        } else if (/silahkan\s+download/i.test(c)) {
+          nextDoc.instruksiDownload = c;
         }
       }
 

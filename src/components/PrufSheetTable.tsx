@@ -21,8 +21,6 @@ import {
   formatPct,
   formatWibDateTime,
   TOBACCO_GROUPS,
-  toGoogleDriveDownloadUrl,
-  triggerDirectFileDownload,
 } from '../utils/formatters';
 
 interface PrufSheetTableProps {
@@ -38,7 +36,6 @@ interface PrufSheetTableProps {
   onDeleteRow: (rowId: string) => void;
   onEditMetadata: () => void;
   onToggleApproval: (which: 'operasional' | 'direktur') => void;
-  onDownloadPruf?: () => void;
 }
 
 type VerifyFilter = 'all' | 'verified' | 'pending';
@@ -58,7 +55,6 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
   onDeleteRow,
   onEditMetadata,
   onToggleApproval,
-  onDownloadPruf,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [verifyFilter, setVerifyFilter] = useState<VerifyFilter>('all');
@@ -993,41 +989,23 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
           <p className="text-xs font-bold italic text-red-600 dark:text-red-400">
             Pruf berlaku hanya yang telah ditandatangani.
           </p>
-          {doc.prufDownloadUrl ? (
-            <div className="space-y-1">
-              <p className="text-[11px] italic text-red-600 dark:text-red-400">
-                Silahkan download melalui link dibawah ini
-              </p>
-              <a
-                href={toGoogleDriveDownloadUrl(doc.prufDownloadUrl)}
-                download={`PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`}
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (onDownloadPruf) {
-                    onDownloadPruf();
-                  } else {
-                    triggerDirectFileDownload(
-                      toGoogleDriveDownloadUrl(doc.prufDownloadUrl),
-                      `PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-                    );
-                  }
-                }}
-                className="inline-flex min-h-[44px] items-center justify-center px-4 text-sm font-bold underline text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-300"
-              >
-                PRUF {doc.tab}
-              </a>
-            </div>
-          ) : (
-            canModify && (
-              <button
-                type="button"
-                onClick={onEditMetadata}
-                className="text-xs underline text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px]"
-              >
-                + Atur Link Download PDF Google Drive ({doc.tab})
-              </button>
-            )
+          {(doc.instruksiDownload !== undefined
+            ? doc.instruksiDownload
+            : 'Silahkan download melalui Tombol Download Pruf yang tersedia') && (
+            <p className="text-[11px] italic text-red-600 dark:text-red-400">
+              {doc.instruksiDownload !== undefined
+                ? doc.instruksiDownload
+                : 'Silahkan download melalui Tombol Download Pruf yang tersedia'}
+            </p>
+          )}
+          {!doc.prufDownloadUrl && canModify && (
+            <button
+              type="button"
+              onClick={onEditMetadata}
+              className="text-xs underline text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-h-[44px]"
+            >
+              + Atur Link Download PDF Google Drive ({doc.tab})
+            </button>
           )}
         </div>
       </div>
