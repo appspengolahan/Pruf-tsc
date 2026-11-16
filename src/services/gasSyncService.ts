@@ -336,19 +336,26 @@ export function parseMatrixToPrufDoc(
       continue;
     }
 
-    // Extract Catatan line and multi-row numbered notes right below "Catatan :" (e.g. B81:N85)
+    // Extract Catatan line and multi-row notes directly below "Catatan :" (cell B81:B85 / Column B)
     if (firstUp.startsWith('CATATAN')) {
       passedGrandTotal = true;
       capturingNotes = true;
+      const isHelperToken = (val: string) =>
+        /^(sync|oos|filter|ada data|tanpa data|true|false|gr|kg|-|—)$/i.test(
+          val.trim()
+        );
       const inlineNote = first.replace(/^CATATAN\s*:?\s*/i, '').trim();
       const extraNote = cells
-        .slice(labelColIdx + 1)
-        .filter((c) => c && c !== ':')
+        .slice(labelColIdx + 1, Math.min(cells.length, 13))
+        .filter((c) => c && c !== ':' && !isHelperToken(c))
         .join(' ')
         .replace(/^:\s*/, '')
         .trim();
-      const initialLine = inlineNote || extraNote || '';
-      if (initialLine && initialLine !== '-') {
+      const initialLine =
+        (inlineNote && !isHelperToken(inlineNote) ? inlineNote : '') ||
+        extraNote ||
+        '';
+      if (initialLine) {
         nextDoc.catatan = initialLine;
         nextDoc.catatanLines = [initialLine];
       } else {
@@ -366,17 +373,22 @@ export function parseMatrixToPrufDoc(
         cells.some(
           (c) =>
             /^(malang|[a-z]+)\s*,\s*\d{1,2}\s+[a-z]+\s+\d{4}$/i.test(c) ||
-            /^(ditetapkan|diketahui|pruf berlaku|silahkan download)/i.test(c)
+            /^(ditetapkan|diketahui|manajer|direktur|pruf berlaku|silahkan download)/i.test(
+              c
+            )
         );
       if (isFooterBoundary) {
         capturingNotes = false;
       } else {
-        const noteLine = cells
-          .filter((c) => c && !/^https?:\/\//i.test(c))
-          .join(' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        if (noteLine && noteLine !== '-') {
+        // Only read Column B (labelColIdx, i.e. B81:B85) so helper columns (OOS/SYNC in N..U) never leak
+        const noteLine = (cells[labelColIdx] || '').replace(/\s+/g, ' ').trim();
+        if (
+          noteLine &&
+          !/^(sync|oos|filter|ada data|tanpa data|true|false|gr|kg|-|—)$/i.test(
+            noteLine
+          ) &&
+          !/^https?:\/\//i.test(noteLine)
+        ) {
           nextDoc.catatanLines = [...(nextDoc.catatanLines || []), noteLine];
           if (!nextDoc.catatan) {
             nextDoc.catatan = noteLine;

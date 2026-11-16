@@ -384,15 +384,29 @@ function extractQuickTabSnapshot(tabName, displayValues) {
     if (firstUp.indexOf('CATATAN') === 0) {
       capturingNotes = true;
       const inlineN = first.replace(/^CATATAN\\s*:?\\s*/i, '').trim();
-      if (inlineN && inlineN !== '-') footerNoteLines.push(inlineN);
+      if (inlineN && !/^(sync|oos|filter|ada data|tanpa data|-|—)$/i.test(inlineN)) {
+        footerNoteLines.push(inlineN);
+      }
       continue;
     }
     if (capturingNotes) {
-      if (/^(DITETAPKAN|DIKETAHUI|MALANG,|ACC\\b|MANAJER|DIREKTUR|\\(|PRUF BERLAKU|SILAHKAN DOWNLOAD)/i.test(firstUp)) {
+      const isFootBoundary =
+        /^(DITETAPKAN|DIKETAHUI|MALANG,|ACC\\b|MANAJER|DIREKTUR|\\(|PRUF BERLAKU|SILAHKAN DOWNLOAD)/i.test(firstUp) ||
+        cells.some(function (x) {
+          return /^(malang|[a-z]+)\\s*,\\s*\\d{1,2}\\s+[a-z]+\\s+\\d{4}$/i.test(x) ||
+            /^(ditetapkan|diketahui|manajer|direktur|pruf berlaku|silahkan download)/i.test(x);
+        });
+      if (isFootBoundary) {
         capturingNotes = false;
       } else {
-        const nl = cells.filter(function (x) { return x && !/^https?:\\/\\//i.test(x); }).join(' ').trim();
-        if (nl && nl !== '-') footerNoteLines.push(nl);
+        const nl = (cells[labelIdx] || '').replace(/\\s+/g, ' ').trim();
+        if (
+          nl &&
+          !/^(sync|oos|filter|ada data|tanpa data|true|false|gr|kg|-|—)$/i.test(nl) &&
+          !/^https?:\\/\\//i.test(nl)
+        ) {
+          footerNoteLines.push(nl);
+        }
         continue;
       }
     }

@@ -73,13 +73,21 @@ export function loadCachedPrufDocs(): Record<SheetTabKey, PrufDocument> {
   );
   const emptyTemplate = createEmptyPrufDocuments();
   const normalized = {...docs};
+  const helperTokenRe = /^(sync|oos|filter|ada data|tanpa data|true|false|gr|kg|-|—)$/i;
   (Object.keys(emptyTemplate) as SheetTabKey[]).forEach((k) => {
     const doc = normalized[k];
     if (!doc || !Array.isArray(doc.rows)) {
       normalized[k] = emptyTemplate[k];
     } else {
+      const cleanedLines = Array.isArray(doc.catatanLines)
+        ? doc.catatanLines.filter((line) => line && !helperTokenRe.test(line.trim()))
+        : [];
+      const cleanedCatatan =
+        doc.catatan && !helperTokenRe.test(doc.catatan.trim()) ? doc.catatan : '';
       normalized[k] = {
         ...doc,
+        catatan: cleanedLines[0] || cleanedCatatan,
+        catatanLines: cleanedLines,
         prufDownloadUrl: doc.prufDownloadUrl
           ? toGoogleDriveDownloadUrl(doc.prufDownloadUrl)
           : '',
