@@ -286,8 +286,16 @@ export function exportPrufPdf(docData: PrufDocument, currentUser: RBACUser): voi
     ((doc as unknown as {lastAutoTable?: {finalY?: number}}).lastAutoTable
       ?.finalY || startY + 120) + 4;
 
+  const noteLines =
+    docData.catatanLines && docData.catatanLines.length > 0
+      ? docData.catatanLines
+      : docData.catatan
+      ? [docData.catatan]
+      : [];
+
   let sigY = finalY;
-  if (sigY > pageHeight - 46) {
+  const noteExtraHeight = Math.max(0, noteLines.length - 1) * 4;
+  if (sigY > pageHeight - (48 + noteExtraHeight)) {
     doc.addPage();
     sigY = 18;
   }
@@ -295,7 +303,15 @@ export function exportPrufPdf(docData: PrufDocument, currentUser: RBACUser): voi
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(7.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(`Catatan : ${docData.catatan || '-'}`, 12, sigY);
+  if (noteLines.length > 0) {
+    doc.text('Catatan :', 12, sigY);
+    noteLines.forEach((line, idx) => {
+      doc.text(line, 14, sigY + 4 + idx * 3.8);
+    });
+    sigY += noteLines.length * 3.8 + 1;
+  } else {
+    doc.text('Catatan : -', 12, sigY);
+  }
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);

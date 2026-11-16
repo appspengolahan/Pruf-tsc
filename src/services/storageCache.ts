@@ -6,6 +6,8 @@ import {
 } from '../data/seedData';
 import type {
   GASConfig,
+  HistoryPortalSettings,
+  PrufChangeHistoryEntry,
   PrufDocument,
   RBACUser,
   SheetTabKey,
@@ -21,6 +23,8 @@ const KEYS = {
   SIDEBAR_COLLAPSED: 'pruf_tsc_sidebar_collapsed_v1',
   THEME: 'pruf_tsc_theme',
   SYNC_LOGS: 'pruf_tsc_sync_logs_v1',
+  HISTORY: 'pruf_tsc_history_v1',
+  HISTORY_SETTINGS: 'pruf_tsc_history_settings_v1',
 } as const;
 
 interface MemoryEntry<T> {
@@ -175,4 +179,26 @@ export function loadSyncLogs(): SyncLogEntry[] {
 
 export function saveSyncLogs(logs: SyncLogEntry[]): void {
   writeCached(KEYS.SYNC_LOGS, logs.slice(0, 25));
+}
+
+export function loadCachedHistory(): PrufChangeHistoryEntry[] {
+  return readCached<PrufChangeHistoryEntry[]>(KEYS.HISTORY, () => []);
+}
+
+export function saveCachedHistory(entries: PrufChangeHistoryEntry[]): void {
+  writeCached(KEYS.HISTORY, entries.slice(0, 500));
+}
+
+export function loadHistoryPortalSettings(): HistoryPortalSettings {
+  return readCached<HistoryPortalSettings>(KEYS.HISTORY_SETTINGS, () => ({
+    showHistoryInPublicPortal: true,
+    updatedAt: '',
+    updatedBy: 'System',
+  }));
+}
+
+export function saveHistoryPortalSettings(
+  settings: HistoryPortalSettings
+): void {
+  writeCached(KEYS.HISTORY_SETTINGS, settings);
 }

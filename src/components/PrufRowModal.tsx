@@ -17,7 +17,7 @@ interface PrufRowModalProps {
   defaultGroup?: PrufGroupKey;
   initialRow?: PrufRow | null;
   onClose: () => void;
-  onSave: (row: PrufRow) => void;
+  onSave: (row: PrufRow, historyReason?: string) => void;
 }
 
 const GROUPS: Array<{key: PrufGroupKey; label: string}> = [
@@ -25,11 +25,19 @@ const GROUPS: Array<{key: PrufGroupKey; label: string}> = [
   {key: 'GROUP 2', label: 'GROUP 2 (Tembakau Pendukung)'},
   {key: 'GROUP 3', label: 'GROUP 3 (Virginia / Impor / Trial)'},
   {key: 'GROUP 4', label: 'GROUP 4 (Kasturi / Garut / Boyolali)'},
+  {key: 'GROUP 5', label: 'GROUP 5 (Tembakau Khusus)'},
   {key: 'GROUP 6', label: 'GROUP 6 (Garut / Ploso)'},
   {key: 'SAOS', label: 'Saos Cassing Jadi & Top Jadi'},
   {key: 'REFRESH', label: 'Tembakau Blend Refresh'},
   {key: 'CENGKEH', label: 'Cengkeh Rajang Kering'},
 ];
+
+const CHANGE_FACTORS = [
+  'Bahan Baku Habis (Penggantian Jenis Bahan)',
+  'Penyesuaian Rasa / Flavour',
+  'Eksekusi Catatan PRUF',
+  'Penyesuaian Komposisi Standar',
+] as const;
 
 export const PrufRowModal: React.FC<PrufRowModalProps> = ({
   baseGr,
@@ -49,6 +57,8 @@ export const PrufRowModal: React.FC<PrufRowModalProps> = ({
     initialRow ? String(initialRow.pct) : '1.00'
   );
   const [keterangan, setKeterangan] = useState(initialRow?.keterangan || '');
+  const [changeFactor, setChangeFactor] = useState<string>(CHANGE_FACTORS[0]);
+  const [customReason, setCustomReason] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const parsedPct = useMemo(() => {
@@ -70,17 +80,24 @@ export const PrufRowModal: React.FC<PrufRowModalProps> = ({
       return;
     }
 
-    onSave({
-      id: initialRow?.id || `row-${Date.now()}`,
-      group,
-      rincian: rincian.trim(),
-      kodeIntern: kodeIntern.trim(),
-      pct: parsedPct,
-      keterangan: keterangan.trim(),
-      verified: initialRow?.verified ?? false,
-      verifiedBy: initialRow?.verifiedBy,
-      verifiedAt: initialRow?.verifiedAt,
-    });
+    const composedReason = customReason.trim()
+      ? `${changeFactor}: ${customReason.trim()}`
+      : changeFactor;
+
+    onSave(
+      {
+        id: initialRow?.id || `row-${Date.now()}`,
+        group,
+        rincian: rincian.trim(),
+        kodeIntern: kodeIntern.trim(),
+        pct: parsedPct,
+        keterangan: keterangan.trim(),
+        verified: initialRow?.verified ?? false,
+        verifiedBy: initialRow?.verifiedBy,
+        verifiedAt: initialRow?.verifiedAt,
+      },
+      composedReason
+    );
   };
 
   return (
@@ -178,14 +195,38 @@ export const PrufRowModal: React.FC<PrufRowModalProps> = ({
 
           <div>
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Keterangan (Opsional)
+              Keterangan / Penanda Catatan Kolom M (Opsional)
             </label>
             <input
               type="text"
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
-              placeholder="Contoh: Catatan 4"
+              placeholder="Contoh: Catatan 1"
               className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"
+            />
+          </div>
+
+          <div className="rounded-xl border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 p-3.5 space-y-2.5">
+            <label className="block text-xs font-semibold text-amber-900 dark:text-amber-300">
+              Faktor Perubahan (Otomatis Tercatat di Riwayat PRUF)
+            </label>
+            <select
+              value={changeFactor}
+              onChange={(e) => setChangeFactor(e.target.value)}
+              className="w-full min-h-[44px] rounded-xl border border-amber-300/70 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 text-xs sm:text-sm text-slate-900 dark:text-white"
+            >
+              {CHANGE_FACTORS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={customReason}
+              onChange={(e) => setCustomReason(e.target.value)}
+              placeholder="Detail catatan riwayat (misal: Stok Besuki 2024 habis, ganti Besuki 2025)"
+              className="w-full min-h-[44px] rounded-xl border border-amber-300/70 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 text-xs sm:text-sm text-slate-900 dark:text-white"
             />
           </div>
 

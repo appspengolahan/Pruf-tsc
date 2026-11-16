@@ -1,9 +1,10 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FileDown, FileSpreadsheet, Globe, Plus} from 'lucide-react';
+import {FileDown, FileSpreadsheet, Globe, History, Plus} from 'lucide-react';
 import {Footer} from './components/Footer';
 import {GASCenterModal} from './components/GASCenterModal';
 import {Header} from './components/Header';
 import {MobileBottomNav} from './components/MobileBottomNav';
+import {PrufHistoryModal} from './components/PrufHistoryModal';
 import {PrufMetadataModal} from './components/PrufMetadataModal';
 import {PrufRowModal} from './components/PrufRowModal';
 import {PrufSheetTable} from './components/PrufSheetTable';
@@ -14,29 +15,43 @@ import {SHEET_TABS} from './data/seedData';
 import {exportPrufPdf} from './services/pdfExportService';
 import {
   downloadIndonesianCsv,
+  pushHistorySettingsToGas,
+  pushHistoryToGas,
   pushPrufDocToGas,
   syncAllTabs,
 } from './services/gasSyncService';
 import {
+  createManualHistoryEntry,
+  detectSyncHistoryEntries,
+  mergeHistoryEntries,
+} from './services/historyService';
+import {
   loadActiveUserId,
+  loadCachedHistory,
   loadCachedPrufDocs,
   loadCachedUsers,
   loadGasConfig,
+  loadHistoryPortalSettings,
   loadSidebarCollapsed,
   loadSyncLogs,
   loadThemePreference,
   saveActiveUserId,
+  saveCachedHistory,
   saveCachedPrufDocs,
   saveCachedUsers,
   saveGasConfig,
+  saveHistoryPortalSettings,
   saveSidebarCollapsed,
   saveSyncLogs,
   saveThemePreference,
 } from './services/storageCache';
 import type {
   GASConfig,
+  HistoryPortalSettings,
+  PrufChangeHistoryEntry,
   PrufDocument,
   PrufGroupKey,
+  PrufHistoryKind,
   PrufRow,
   RBACUser,
   RoleType,
@@ -51,6 +66,7 @@ import {
   formatKg,
   formatPct,
   roundKg,
+  roundPct,
   triggerDirectFileDownload,
 } from './utils/formatters';
 
@@ -95,6 +111,12 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState<string>(loadActiveUserId);
   const [gasConfig, setGasConfig] = useState<GASConfig>(loadGasConfig);
   const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>(loadSyncLogs);
+  const [historyEntries, setHistoryEntries] = useState<PrufChangeHistoryEntry[]>(
+    loadCachedHistory
+  );
+  const [historySettings, setHistorySettings] = useState<HistoryPortalSettings>(
+    loadHistoryPortalSettings
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     loadSidebarCollapsed
   );
@@ -109,6 +131,7 @@ export default function App() {
   const [showGasModal, setShowGasModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showPublicModal, setShowPublicModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [toast, setToast] = useState<{
     type: 'success' | 'info' | 'error';
     text: string;
@@ -189,12 +212,92 @@ export default function App() {
     []
   );
 
+  const appendHistoryRecord = useCallback(
+    (entries: PrufChangeHistoryEntry[]) => {
+      if (entries.length === 0) return;
+      setHistoryEntries((prev) => {
+        const merged = mergeHistoryEntries(entries, prev);
+        saveCachedHistory(merged);
+        return merged;
+      });
+      if (gasConfig.gasUrl.trim()) {
+        void pushHistoryToGas(gasConfig.gasUrl, entries).catch(() => {
+          // Cached locally; will sync later when GAS is reachable
+        });
+      }
+    },
+    [gasConfig.gasUrl]
+  );
+
+  const handleToggleHistoryVisibility = useCallback(
+    (nextVisible: boolean) => {
+      if (isPublicPortal) return;
+      const next: HistoryPortalSettings = {
+        showHistoryInPublicPortal: nextVisible,
+        updatedAt: new Date().toISOString(),
+        updatedBy: activeUser.name,
+      };
+      setHistorySettings(next);
+      saveHistoryPortalSettings(next);
+      if (gasConfig.gasUrl.trim()) {
+        void pushHistorySettingsToGas(gasConfig.gasUrl, next).catch(() => {
+          // Kept locally
+        });
+      }
+      showToast(
+        'info',
+        nextVisible
+          ? 'Riwayat Perubahan ditampilkan (Read-Only) di Portal Publik.'
+          : 'Riwayat Perubahan disembunyikan dari Portal Publik.'
+      );
+    },
+    [isPublicPortal, activeUser.name, gasConfig.gasUrl, showToast]
+  );
+
   const handleSyncNow = useCallback(
     async (silent = false) => {
       if (isSyncing) return;
       setIsSyncing(true);
       try {
         const res = await syncAllTabs(gasConfig, docsByTab);
+
+        // Detect composition & Catatan changes across all 4 tabs before overwriting state
+        const clientDetected: PrufChangeHistoryEntry[] = [];
+        for (const t of SHEET_TABS) {
+          const prevDoc = docsByTab[t.key];
+          const nextDoc = res.docs[t.key];
+          if (prevDoc && nextDoc) {
+            clientDetected.push(...detectSyncHistoryEntries(prevDoc, nextDoc));
+          }
+        }
+
+        const remoteHistory = Array.isArray(res.history) ? res.history : [];
+        if (remoteHistory.length > 0 || clientDetected.length > 0) {
+          setHistoryEntries((prev) => {
+            const merged = mergeHistoryEntries(
+              [...remoteHistory, ...clientDetected],
+              prev
+            );
+            saveCachedHistory(merged);
+            return merged;
+          });
+
+          if (res.source === 'gas' && gasConfig.gasUrl.trim() && clientDetected.length > 0) {
+            const remoteIds = new Set(remoteHistory.map((h) => h.id));
+            const unsynced = clientDetected.filter((d) => !remoteIds.has(d.id));
+            if (unsynced.length > 0) {
+              void pushHistoryToGas(gasConfig.gasUrl, unsynced).catch(() => {
+                // Non-blocking sync
+              });
+            }
+          }
+        }
+
+        if (res.historySettings) {
+          setHistorySettings(res.historySettings);
+          saveHistoryPortalSettings(res.historySettings);
+        }
+
         setDocsByTab(res.docs);
         saveCachedPrufDocs(res.docs);
 
@@ -387,9 +490,53 @@ export default function App() {
     );
   };
 
-  const handleSaveRow = (savedRow: PrufRow) => {
+  const handleSaveRow = (savedRow: PrufRow, historyReason?: string) => {
     setShowRowModal(false);
     setEditingRow(null);
+
+    const prevRow = activeDoc.rows.find((r) => r.id === savedRow.id) || null;
+    let detectedKind: PrufHistoryKind | null = null;
+    if (!prevRow) {
+      detectedKind = 'TAMBAH_BAHAN';
+    } else if (
+      prevRow.rincian.trim().toLowerCase() !== savedRow.rincian.trim().toLowerCase()
+    ) {
+      detectedKind = 'GANTI_BAHAN';
+    } else if (Math.abs(roundPct(savedRow.pct - prevRow.pct)) >= 0.01) {
+      detectedKind = 'UBAH_PERSENTASE';
+    } else if (
+      savedRow.keterangan &&
+      /catatan/i.test(savedRow.keterangan) &&
+      savedRow.keterangan !== prevRow.keterangan
+    ) {
+      detectedKind = 'CATATAN_AKTIF';
+    } else if (
+      prevRow.keterangan &&
+      /catatan/i.test(prevRow.keterangan) &&
+      !savedRow.keterangan
+    ) {
+      detectedKind = 'EKSEKUSI_CATATAN';
+    }
+
+    if (detectedKind) {
+      const historyEntry = createManualHistoryEntry({
+        doc: activeDoc,
+        prevRow,
+        nextRow: savedRow,
+        jenisPerubahan: detectedKind,
+        faktorAlasan:
+          historyReason ||
+          (detectedKind === 'GANTI_BAHAN'
+            ? `Penggantian bahan ${prevRow?.rincian} → ${savedRow.rincian}`
+            : detectedKind === 'UBAH_PERSENTASE'
+            ? `Penyesuaian persentase ${savedRow.rincian}`
+            : `Pembaruan baris ${savedRow.rincian}`),
+        catatanRef: savedRow.keterangan || prevRow?.keterangan || '',
+        actor: activeUser.name,
+      });
+      appendHistoryRecord([historyEntry]);
+    }
+
     void updateActiveDoc((doc) => {
       const exists = doc.rows.some((r) => r.id === savedRow.id);
       const rows = exists
@@ -404,6 +551,22 @@ export default function App() {
   };
 
   const handleDeleteRow = (rowId: string) => {
+    const targetRow = activeDoc.rows.find((r) => r.id === rowId);
+    if (targetRow && targetRow.pct > 0) {
+      const entry = createManualHistoryEntry({
+        doc: activeDoc,
+        prevRow: targetRow,
+        nextRow: null,
+        jenisPerubahan: 'HAPUS_BAHAN',
+        faktorAlasan: `Menghapus bahan ${targetRow.rincian} (${formatPct(
+          targetRow.pct
+        )}) dari komposisi ${activeDoc.peruntukanMerk || activeTab}`,
+        catatanRef: targetRow.keterangan || '',
+        actor: activeUser.name,
+      });
+      appendHistoryRecord([entry]);
+    }
+
     void updateActiveDoc(
       (doc) => ({
         ...doc,
@@ -412,6 +575,48 @@ export default function App() {
       }),
       'Baris bahan dihapus.'
     );
+  };
+
+  const handleAddManualHistory = (payload: {
+    jenisPerubahan: PrufHistoryKind;
+    group: string;
+    bahanLama: string;
+    bahanBaru: string;
+    pctLama: number | null;
+    pctBaru: number | null;
+    catatanRef: string;
+    faktorAlasan: string;
+  }) => {
+    const delta =
+      payload.pctLama !== null && payload.pctBaru !== null
+        ? roundPct(payload.pctBaru - payload.pctLama)
+        : null;
+    const entry: PrufChangeHistoryEntry = {
+      id: `hist-manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      tab: activeTab,
+      namaTbkBlend: activeDoc.namaTbkBlend || activeTab,
+      peruntukanMerk: activeDoc.peruntukanMerk || '-',
+      noDokumen: activeDoc.noDokumen || '-',
+      periodePruf: activeDoc.periodePruf || activeDoc.tglBlend || '-',
+      jenisPerubahan: payload.jenisPerubahan,
+      status:
+        payload.jenisPerubahan === 'CATATAN_AKTIF'
+          ? 'Rencana (Catatan Aktif)'
+          : 'Sudah Dieksekusi',
+      group: payload.group || 'GROUP 1',
+      bahanLama: payload.bahanLama,
+      bahanBaru: payload.bahanBaru,
+      pctLama: payload.pctLama,
+      pctBaru: payload.pctBaru,
+      deltaPct: delta,
+      catatanRef: payload.catatanRef,
+      faktorAlasan: payload.faktorAlasan,
+      sumber: 'Web App',
+      oleh: activeUser.name,
+    };
+    appendHistoryRecord([entry]);
+    showToast('success', `Riwayat untuk merk (${activeTab}) disimpan ke RIWAYAT_PRUF.`);
   };
 
   const handleSaveMetadata = (patch: Partial<PrufDocument>) => {
@@ -566,6 +771,23 @@ export default function App() {
                 >
                   <Plus className="w-4 h-4" />
                   <span>Tambah Bahan</span>
+                </button>
+              )}
+
+              {(!isPublicPortal || historySettings.showHistoryInPublicPortal) && (
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryModal(true)}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+                  title="Lihat Riwayat Perubahan Komposisi & Catatan PRUF per Merk"
+                >
+                  <History className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Riwayat Perubahan</span>
+                  {historyEntries.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-amber-600 text-white font-mono text-[11px] tabular-nums">
+                      {historyEntries.length}
+                    </span>
+                  )}
                 </button>
               )}
 
@@ -776,8 +998,24 @@ export default function App() {
       {!isPublicPortal && showPublicModal && (
         <PublicPortalModal
           activeTab={activeTab}
+          showHistoryInPublicPortal={historySettings.showHistoryInPublicPortal}
+          onToggleHistoryVisibility={handleToggleHistoryVisibility}
           onEnterPublicPreview={handleEnterPublicPreview}
           onClose={() => setShowPublicModal(false)}
+        />
+      )}
+
+      {showHistoryModal && (!isPublicPortal || historySettings.showHistoryInPublicPortal) && (
+        <PrufHistoryModal
+          activeTab={activeTab}
+          activeDoc={activeDoc}
+          entries={historyEntries}
+          isPublicPortal={isPublicPortal}
+          canModify={canModify}
+          showHistoryInPublicPortal={historySettings.showHistoryInPublicPortal}
+          onToggleHistoryVisibility={handleToggleHistoryVisibility}
+          onAddManualEntry={handleAddManualHistory}
+          onClose={() => setShowHistoryModal(false)}
         />
       )}
 

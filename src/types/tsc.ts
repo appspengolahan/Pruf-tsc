@@ -23,6 +23,7 @@ export type PrufGroupKey =
   | 'GROUP 2'
   | 'GROUP 3'
   | 'GROUP 4'
+  | 'GROUP 5'
   | 'GROUP 6'
   | 'SAOS'
   | 'REFRESH'
@@ -61,6 +62,7 @@ export interface PrufDocument {
   targetKg: number; // e.g. 600, 140, 360
   rows: PrufRow[];
   catatan: string;
+  catatanLines?: string[];
   lokasiTanggal: string;
   accOperasional: PrufApproval;
   accDirektur: PrufApproval;
@@ -68,6 +70,47 @@ export interface PrufDocument {
   instruksiDownload?: string;
   updatedAt: string;
   source: 'local' | 'gas' | 'csv';
+}
+
+export type PrufHistoryKind =
+  | 'CATATAN_AKTIF'
+  | 'GANTI_BAHAN'
+  | 'UBAH_PERSENTASE'
+  | 'TAMBAH_BAHAN'
+  | 'HAPUS_BAHAN'
+  | 'EKSEKUSI_CATATAN';
+
+export type PrufHistoryStatus =
+  | 'Rencana (Catatan Aktif)'
+  | 'Sudah Dieksekusi'
+  | 'Tercatat';
+
+export interface PrufChangeHistoryEntry {
+  id: string;
+  timestamp: string;
+  tab: SheetTabKey;
+  namaTbkBlend: string;
+  peruntukanMerk: string;
+  noDokumen: string;
+  periodePruf: string;
+  jenisPerubahan: PrufHistoryKind;
+  status: PrufHistoryStatus;
+  group: string;
+  bahanLama: string;
+  bahanBaru: string;
+  pctLama: number | null;
+  pctBaru: number | null;
+  deltaPct: number | null;
+  catatanRef: string;
+  faktorAlasan: string;
+  sumber: 'Google Sheets' | 'Web App';
+  oleh: string;
+}
+
+export interface HistoryPortalSettings {
+  showHistoryInPublicPortal: boolean;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface GASConfig {

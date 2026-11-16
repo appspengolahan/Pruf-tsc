@@ -112,6 +112,7 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
       'GROUP 2': [],
       'GROUP 3': [],
       'GROUP 4': [],
+      'GROUP 5': [],
       'GROUP 6': [],
       SAOS: [],
       REFRESH: [],
@@ -883,8 +884,23 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
 
       {/* Authentic PRUF Catatan & Signature Footer */}
       <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900 space-y-5">
-        <div className="text-xs italic text-slate-700 dark:text-slate-300">
-          <strong>Catatan :</strong> {doc.catatan || '-'}
+        <div className="text-xs italic text-slate-700 dark:text-slate-300 space-y-0.5">
+          {doc.catatanLines && doc.catatanLines.length > 0 ? (
+            <>
+              <div>
+                <strong>Catatan :</strong>
+              </div>
+              {doc.catatanLines.map((line, idx) => (
+                <div key={idx} className="pl-2">
+                  {line}
+                </div>
+              ))}
+            </>
+          ) : (
+            <div>
+              <strong>Catatan :</strong> {doc.catatan || '-'}
+            </div>
+          )}
         </div>
 
         {doc.lokasiTanggal && (

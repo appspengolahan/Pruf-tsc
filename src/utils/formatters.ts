@@ -103,6 +103,7 @@ export const TOBACCO_GROUPS: PrufGroupKey[] = [
   'GROUP 2',
   'GROUP 3',
   'GROUP 4',
+  'GROUP 5',
   'GROUP 6',
 ];
 
@@ -144,6 +145,7 @@ export function computePrufTotals(doc: PrufDocument): PrufTotalsSummary {
     'GROUP 2': emptyEntry(),
     'GROUP 3': emptyEntry(),
     'GROUP 4': emptyEntry(),
+    'GROUP 5': emptyEntry(),
     'GROUP 6': emptyEntry(),
     SAOS: emptyEntry(),
     REFRESH: emptyEntry(),

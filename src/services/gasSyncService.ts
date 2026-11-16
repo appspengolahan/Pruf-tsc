@@ -1,6 +1,8 @@
 import {createEmptyPrufDocuments, SHEET_TABS} from '../data/seedData';
 import type {
   GASConfig,
+  HistoryPortalSettings,
+  PrufChangeHistoryEntry,
   PrufDocument,
   PrufGroupKey,
   PrufRow,
@@ -103,6 +105,7 @@ function detectGroupHeader(label: string): PrufGroupKey | null {
   if (up.startsWith('GROUP 2')) return 'GROUP 2';
   if (up.startsWith('GROUP 3')) return 'GROUP 3';
   if (up.startsWith('GROUP 4')) return 'GROUP 4';
+  if (up.startsWith('GROUP 5')) return 'GROUP 5';
   if (up.startsWith('GROUP 6')) return 'GROUP 6';
   if (up.includes('TEMBAKAU BLEND REFRESH')) return 'REFRESH';
   return null;
@@ -170,6 +173,7 @@ export function parseMatrixToPrufDoc(
     baseGr: 1000,
     targetKg: baseline.targetKg || 600,
     catatan: '',
+    catatanLines: [],
     lokasiTanggal: '',
     accOperasional: {
       approved: false,
@@ -215,6 +219,7 @@ export function parseMatrixToPrufDoc(
   let linkColIdx = -1;
   let isStructuredExport = false;
   let passedGrandTotal = false;
+  let capturingNotes = false;
 
   for (let r = 0; r < matrix.length; r++) {
     const rawRow = matrix[r] || [];
@@ -331,9 +336,10 @@ export function parseMatrixToPrufDoc(
       continue;
     }
 
-    // Extract Catatan line dynamically from source
+    // Extract Catatan line and multi-row numbered notes right below "Catatan :" (e.g. B81:N85)
     if (firstUp.startsWith('CATATAN')) {
       passedGrandTotal = true;
+      capturingNotes = true;
       const inlineNote = first.replace(/^CATATAN\s*:?\s*/i, '').trim();
       const extraNote = cells
         .slice(labelColIdx + 1)
@@ -341,8 +347,43 @@ export function parseMatrixToPrufDoc(
         .join(' ')
         .replace(/^:\s*/, '')
         .trim();
-      nextDoc.catatan = inlineNote || extraNote || '';
+      const initialLine = inlineNote || extraNote || '';
+      if (initialLine && initialLine !== '-') {
+        nextDoc.catatan = initialLine;
+        nextDoc.catatanLines = [initialLine];
+      } else {
+        nextDoc.catatan = '';
+        nextDoc.catatanLines = [];
+      }
       continue;
+    }
+
+    if (capturingNotes) {
+      const isFooterBoundary =
+        /^(DITETAPKAN|DIKETAHUI|MALANG,|ACC\b|MANAJER|DIREKTUR|\(|PRUF BERLAKU|SILAHKAN DOWNLOAD)/i.test(
+          firstUp
+        ) ||
+        cells.some(
+          (c) =>
+            /^(malang|[a-z]+)\s*,\s*\d{1,2}\s+[a-z]+\s+\d{4}$/i.test(c) ||
+            /^(ditetapkan|diketahui|pruf berlaku|silahkan download)/i.test(c)
+        );
+      if (isFooterBoundary) {
+        capturingNotes = false;
+      } else {
+        const noteLine = cells
+          .filter((c) => c && !/^https?:\/\//i.test(c))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (noteLine && noteLine !== '-') {
+          nextDoc.catatanLines = [...(nextDoc.catatanLines || []), noteLine];
+          if (!nextDoc.catatan) {
+            nextDoc.catatan = noteLine;
+          }
+        }
+        continue;
+      }
     }
 
     // Extract Footer Metadata: Tanggal Lokasi, Jabatan, Nama Penandatangan, and optional ACC stamps
@@ -602,6 +643,8 @@ export async function fetchFromGasEndpoint(
   tab?: SheetTabKey
 ): Promise<{
   docs: Partial<Record<SheetTabKey, PrufDocument>>;
+  history: PrufChangeHistoryEntry[];
+  historySettings?: HistoryPortalSettings;
   rawPayload: unknown;
 }> {
   const cleanUrl = gasUrl.trim();
@@ -625,6 +668,8 @@ export async function fetchFromGasEndpoint(
     error?: string;
     data?: Record<string, unknown[][]>;
     links?: Record<string, string[]>;
+    history?: PrufChangeHistoryEntry[];
+    historySettings?: HistoryPortalSettings;
   };
   if (parsed.ok === false) {
     throw new Error(parsed.error || 'Respons GAS menyatakan gagal.');
@@ -655,7 +700,13 @@ export async function fetchFromGasEndpoint(
       docs[meta.key] = parsedDoc;
     }
   }
-  return {docs, rawPayload: parsed};
+  const history = Array.isArray(parsed.history) ? parsed.history : [];
+  return {
+    docs,
+    history,
+    historySettings: parsed.historySettings,
+    rawPayload: parsed,
+  };
 }
 
 export async function fetchTabFromGoogleSheetCsv(
@@ -684,6 +735,8 @@ export async function syncAllTabs(
   currentDocs: Record<SheetTabKey, PrufDocument>
 ): Promise<{
   docs: Record<SheetTabKey, PrufDocument>;
+  history: PrufChangeHistoryEntry[];
+  historySettings?: HistoryPortalSettings;
   source: 'gas' | 'csv';
   warnings: string[];
 }> {
@@ -701,7 +754,13 @@ export async function syncAllTabs(
           for (const k of syncedKeys) {
             if (gasRes.docs[k]) merged[k] = gasRes.docs[k]!;
           }
-          return {docs: merged, source: 'gas', warnings};
+          return {
+            docs: merged,
+            history: gasRes.history,
+            historySettings: gasRes.historySettings,
+            source: 'gas',
+            warnings,
+          };
         }
         warnings.push('GAS terhubung namun data tab kosong; mencoba fallback CSV...');
       } catch (err) {
@@ -737,7 +796,7 @@ export async function syncAllTabs(
       );
     }
 
-    return {docs: merged, source: 'csv', warnings};
+    return {docs: merged, history: [], source: 'csv', warnings};
   });
 }
 
@@ -766,6 +825,52 @@ export async function pushPrufDocToGas(
     throw new Error(parsed.error || 'Gagal menulis ke GAS.');
   }
   return parsed;
+}
+
+export async function pushHistoryToGas(
+  gasUrl: string,
+  entries: PrufChangeHistoryEntry[]
+): Promise<unknown> {
+  const cleanUrl = gasUrl.trim();
+  if (!cleanUrl || entries.length === 0) {
+    return {ok: true, localOnly: true};
+  }
+  const res = await fetch(cleanUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action: 'append_history', entries}),
+  });
+  const rawText = await res.text();
+  if (rawText.trim().startsWith('<')) {
+    throw new Error(
+      'GAS POST riwayat mengembalikan HTML. Periksa izin deploy Web App GAS.'
+    );
+  }
+  const parsed = JSON.parse(rawText) as {ok?: boolean; error?: string};
+  if (parsed.ok === false) {
+    throw new Error(parsed.error || 'Gagal menulis riwayat ke GAS.');
+  }
+  return parsed;
+}
+
+export async function pushHistorySettingsToGas(
+  gasUrl: string,
+  settings: HistoryPortalSettings
+): Promise<unknown> {
+  const cleanUrl = gasUrl.trim();
+  if (!cleanUrl) {
+    return {ok: true, localOnly: true};
+  }
+  const res = await fetch(cleanUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action: 'set_history_settings', settings}),
+  });
+  const rawText = await res.text();
+  if (rawText.trim().startsWith('<')) {
+    throw new Error('GAS POST pengaturan riwayat mengembalikan HTML.');
+  }
+  return JSON.parse(rawText) as {ok?: boolean; error?: string};
 }
 
 /**

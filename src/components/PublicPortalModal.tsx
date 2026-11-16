@@ -4,12 +4,16 @@ import type {SheetTabKey} from '../types/tsc';
 
 interface PublicPortalModalProps {
   activeTab: SheetTabKey;
+  showHistoryInPublicPortal: boolean;
+  onToggleHistoryVisibility: (nextVisible: boolean) => void;
   onEnterPublicPreview: (tab?: SheetTabKey) => void;
   onClose: () => void;
 }
 
 export const PublicPortalModal: React.FC<PublicPortalModalProps> = ({
   activeTab,
+  showHistoryInPublicPortal,
+  onToggleHistoryVisibility,
   onEnterPublicPreview,
   onClose,
 }) => {
@@ -86,6 +90,25 @@ export const PublicPortalModal: React.FC<PublicPortalModalProps> = ({
               Pengunjung yang membuka link di bawah ini hanya dapat melihat komposisi PRUF, memfilter pencarian, mengganti tab blend, dan mengunduh file PDF resmi tanpa bisa mengubah data apa pun.
             </div>
           </div>
+
+          <label className="min-h-[44px] flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 p-3.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showHistoryInPublicPortal}
+              onChange={(e) => onToggleHistoryVisibility(e.target.checked)}
+              className="mt-0.5 w-5 h-5 rounded accent-emerald-600 shrink-0"
+            />
+            <div className="text-xs leading-relaxed">
+              <div className="font-semibold text-slate-900 dark:text-white">
+                Tampilkan Riwayat Perubahan Komposisi di Portal Publik (Read-Only)
+              </div>
+              <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+                {showHistoryInPublicPortal
+                  ? 'Aktif — pengunjung Portal Publik dapat melihat riwayat catatan & perubahan bahan/persentase per merk (tetap read-only).'
+                  : 'Nonaktif — tombol dan panel Riwayat Perubahan disembunyikan dari Portal Publik.'}
+              </div>
+            </div>
+          </label>
 
           {/* Link Semua Tab */}
           <div className="space-y-1.5">
