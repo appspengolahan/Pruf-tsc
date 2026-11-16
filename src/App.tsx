@@ -122,6 +122,13 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     loadSidebarCollapsed
   );
+  const [isShortLandscape, setIsShortLandscape] = useState<boolean>(() => {
+    try {
+      return window.matchMedia('(orientation: landscape) and (max-height: 540px)').matches;
+    } catch {
+      return false;
+    }
+  });
   const [theme, setTheme] = useState<'light' | 'dark'>(loadThemePreference);
   const [activeTab, setActiveTab] = useState<SheetTabKey>(detectTabFromLocation);
 
@@ -172,6 +179,18 @@ export default function App() {
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(orientation: landscape) and (max-height: 540px)');
+    const update = () => setIsShortLandscape(mql.matches);
+    update();
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', update);
+      return () => mql.removeEventListener('change', update);
+    }
+    mql.addListener(update);
+    return () => mql.removeListener(update);
   }, []);
 
   const activeUser = useMemo(() => {
@@ -752,7 +771,7 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        collapsed={sidebarCollapsed}
+        collapsed={sidebarCollapsed || isShortLandscape}
         onToggleCollapse={handleToggleSidebar}
         onOpenGasCenter={() => setShowGasModal(true)}
         onOpenUserModal={() => setShowUserModal(true)}
@@ -780,7 +799,7 @@ export default function App() {
           isPublicPortal={isPublicPortal}
         />
 
-        <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-6 space-y-5">
+        <main className="flex-1 overflow-y-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 py-4 sm:py-6 [@media(orientation:landscape)_and_(max-height:540px)]:py-3 pb-24 md:pb-6 space-y-5 [@media(orientation:landscape)_and_(max-height:540px)]:space-y-3">
           {/* Top Page Context & Actions */}
           <div className="flex flex-col gap-3">
             <div className="min-w-0">
@@ -891,7 +910,7 @@ export default function App() {
           {/* 4-Column Executive KPI Summary Strip */}
           <section
             aria-label="Ringkasan PRUF Aktif"
-            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4"
           >
             <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-4">
               <div className="text-xs font-medium text-slate-500 dark:text-slate-400">

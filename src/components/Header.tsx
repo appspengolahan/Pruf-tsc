@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-16 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-30 h-16 [@media(orientation:landscape)_and_(max-height:540px)]:h-12 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Page Context & Live Sync Telemetry */}
         <div className="min-w-0 flex items-center gap-3">
           <div className="min-w-0">

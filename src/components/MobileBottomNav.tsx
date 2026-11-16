@@ -37,7 +37,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <div
         className={`grid ${
           isPublicPortal ? 'grid-cols-4' : 'grid-cols-5'
-        } items-center h-14 px-1`}
+        } items-center h-14 [@media(orientation:landscape)_and_(max-height:540px)]:h-12 pl-[max(0.25rem,env(safe-area-inset-left))] pr-[max(0.25rem,env(safe-area-inset-right))]`}
       >
         {SHEET_TABS.map((tab) => {
           const Icon = MOBILE_ICONS[tab.key];
