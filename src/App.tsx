@@ -710,6 +710,7 @@ export default function App() {
               if (!isPublicPortal) setShowMetaModal(true);
             }}
             onToggleApproval={handleToggleApproval}
+            onDownloadPruf={handleDownloadPruf}
           />
 
           <Footer />

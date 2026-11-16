@@ -224,7 +224,16 @@ export function parseMatrixToPrufDoc(
     // Detect any Google Drive / Docs PDF link embedded in cells of the source sheet
     for (let ci = 0; ci < cells.length; ci++) {
       const c = cells[ci];
-      if (/https?:\/\/(drive(?:\.usercontent)?|docs)\.google\.com\//i.test(c)) {
+      if (/https?:\/\/drive(?:\.usercontent)?\.google\.com\//i.test(c)) {
+        const urlMatch = /(https?:\/\/[^\s"']+)/i.exec(c);
+        if (urlMatch?.[1]) {
+          nextDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(urlMatch[1]);
+        }
+      } else if (
+        !nextDoc.prufDownloadUrl &&
+        /https?:\/\/docs\.google\.com\//i.test(c) &&
+        !/#gid=/i.test(c)
+      ) {
         const urlMatch = /(https?:\/\/[^\s"']+)/i.exec(c);
         if (urlMatch?.[1]) {
           nextDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(urlMatch[1]);
@@ -633,8 +642,9 @@ export async function fetchFromGasEndpoint(
       const tabLinks = linksMap[meta.key];
       if (Array.isArray(tabLinks) && tabLinks.length > 0) {
         const driveLink =
-          tabLinks.find((u) => /(drive(?:\.usercontent)?|docs)\.google\.com/i.test(u)) ||
-          tabLinks[0];
+          tabLinks.find((u) => /drive(?:\.usercontent)?\.google\.com/i.test(u)) ||
+          tabLinks.find((u) => /docs\.google\.com/i.test(u) && !/#gid=/i.test(u)) ||
+          tabLinks[tabLinks.length - 1];
         if (driveLink) {
           parsedDoc.prufDownloadUrl = toGoogleDriveDownloadUrl(driveLink);
         }

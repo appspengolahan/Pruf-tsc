@@ -38,6 +38,7 @@ interface PrufSheetTableProps {
   onDeleteRow: (rowId: string) => void;
   onEditMetadata: () => void;
   onToggleApproval: (which: 'operasional' | 'direktur') => void;
+  onDownloadPruf?: () => void;
 }
 
 type VerifyFilter = 'all' | 'verified' | 'pending';
@@ -57,6 +58,7 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
   onDeleteRow,
   onEditMetadata,
   onToggleApproval,
+  onDownloadPruf,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [verifyFilter, setVerifyFilter] = useState<VerifyFilter>('all');
@@ -996,18 +998,25 @@ export const PrufSheetTable: React.FC<PrufSheetTableProps> = React.memo(({
               <p className="text-[11px] italic text-red-600 dark:text-red-400">
                 Silahkan download melalui link dibawah ini
               </p>
-              <button
-                type="button"
-                onClick={() =>
-                  triggerDirectFileDownload(
-                    toGoogleDriveDownloadUrl(doc.prufDownloadUrl),
-                    `PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-                  )
-                }
+              <a
+                href={toGoogleDriveDownloadUrl(doc.prufDownloadUrl)}
+                download={`PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`}
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onDownloadPruf) {
+                    onDownloadPruf();
+                  } else {
+                    triggerDirectFileDownload(
+                      toGoogleDriveDownloadUrl(doc.prufDownloadUrl),
+                      `PRUF_${doc.tab.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+                    );
+                  }
+                }}
                 className="inline-flex min-h-[44px] items-center justify-center px-4 text-sm font-bold underline text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-300"
               >
                 PRUF {doc.tab}
-              </button>
+              </a>
             </div>
           ) : (
             canModify && (
